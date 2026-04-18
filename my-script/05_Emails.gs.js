@@ -30,11 +30,11 @@ function emailFooter_() {
     ? `<img src="${COMPANY_LOGO_URL}" alt="${COMPANY_NAME}" style="max-height:28px;max-width:100px;object-fit:contain;display:block;margin:0 auto 8px;" />`
     : '';
   return `
-    <div style="background:#f5f7fa;border-radius:0 0 10px 10px;padding:16px 24px;text-align:center;border:1px solid #e8edf2;border-top:none;">
+    <div style="background:#0d6b6e;border-radius:0 0 10px 10px;padding:16px 24px;text-align:center;">
       ${logoHtml}
-      <p style="font-size:12px;color:#a0aec0;margin:0;line-height:1.8;">
+      <p style="font-size:12px;color:rgba(255,255,255,0.75);margin:0;line-height:1.8;">
         تم الإرسال تلقائياً بواسطة
-        <a href="${COMPANY_URL}" style="color:#0d6b6e;text-decoration:none;font-weight:600;">${COMPANY_NAME}</a>
+        <a href="${COMPANY_URL}" style="color:#ffffff;text-decoration:none;font-weight:600;">${COMPANY_NAME}</a>
       </p>
     </div>`;
 }
