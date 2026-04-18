@@ -28,6 +28,10 @@ const COL_PREV_EMPLOYEE  = 14; // N — previously assigned employee
 const COL_DATE_ZAKAT     = 9;  // I — next zakat declaration date
 const COL_DATE_TAX       = 10; // J — next tax declaration date
 
+// ── Branding ──────────────────────────────────────────────────
+const COMPANY_NAME     = 'Statix';
+const COMPANY_URL      = 'https://statix-sa.com/ar';
+
 // ── Calendar ──────────────────────────────────────────────────
 const CALENDAR_REMINDER_DAYS = 7;
 
