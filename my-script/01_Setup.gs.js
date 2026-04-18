@@ -31,9 +31,13 @@ const COL_DATE_TAX       = 10; // J — next tax declaration date
 // ── Branding ──────────────────────────────────────────────────
 const COMPANY_NAME     = 'Statix';
 const COMPANY_URL      = 'https://statix-sa.com/ar';
+const COMPANY_LOGO_URL = 'https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png';
 
 // ── Calendar ──────────────────────────────────────────────────
 const CALENDAR_REMINDER_DAYS = 7;
+
+// ── Upload Monitoring ─────────────────────────────────────────
+const UPLOAD_CHECK_MINUTES = 5;
 
 // ── Month Names for Folder Structure ─────────────────────────
 const MONTH_NAMES = [
@@ -77,7 +81,17 @@ function setupTriggers() {
     .onEdit()
     .create();
 
+  ScriptApp.newTrigger('checkUploadsForNewFiles')
+    .timeBased()
+    .everyMinutes(UPLOAD_CHECK_MINUTES)
+    .create();
+
   Logger.log('Triggers ready');
+}
+
+function resetUploadCheckTimestamp() {
+  PropertiesService.getScriptProperties().deleteProperty('lastUploadCheck');
+  Logger.log('Upload check timestamp reset — next run will set a new baseline');
 }
 
 function setupTemplateYear(year) {

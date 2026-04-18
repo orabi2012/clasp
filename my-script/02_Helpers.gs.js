@@ -10,7 +10,8 @@ function getOrCreateSubfolder_(parentFolder, folderName) {
   return iter.hasNext() ? iter.next() : parentFolder.createFolder(folderName);
 }
 
-function copyFolderContents_(sourceFolder, targetFolder) {
+function copyFolderContents_(sourceFolder, targetFolder, skipFolderNames) {
+  const skip  = skipFolderNames || [];
   const files = sourceFolder.getFiles();
   while (files.hasNext()) {
     const file = files.next();
@@ -20,8 +21,38 @@ function copyFolderContents_(sourceFolder, targetFolder) {
   const folders = sourceFolder.getFolders();
   while (folders.hasNext()) {
     const subFolder = folders.next();
-    copyFolderContents_(subFolder, targetFolder.createFolder(subFolder.getName()));
+    if (skip.indexOf(subFolder.getName()) !== -1) {
+      // Create the folder but skip copying its contents (deferred)
+      targetFolder.createFolder(subFolder.getName());
+      continue;
+    }
+    copyFolderContents_(subFolder, targetFolder.createFolder(subFolder.getName()), skip);
   }
+}
+
+function buildClientStageFolders_(clientFolderId) {
+  const clientFolder = DriveApp.getFolderById(clientFolderId);
+  const stageIter    = clientFolder.getFoldersByName(FOLDER_STAGE);
+  if (!stageIter.hasNext()) return;
+
+  const stageFolder = stageIter.next();
+  const year        = new Date().getFullYear();
+
+  // Skip if year folder already exists
+  const yearIter = stageFolder.getFoldersByName(String(year));
+  if (yearIter.hasNext()) return;
+
+  const yearFolder = stageFolder.createFolder(String(year));
+  for (let m = 0; m < MONTH_NAMES.length; m++) {
+    const monthFolder = yearFolder.createFolder(MONTH_NAMES[m]);
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      monthFolder.createFolder(String(day).padStart(2, '0'));
+    }
+    Utilities.sleep(200);
+  }
+
+  Logger.log('Stage folders built for year ' + year);
 }
 
 function getSubfolderUrl_(parentFolder, folderName, fallbackUrl) {
@@ -42,7 +73,8 @@ function createClientFolder(clientName, clientEmail) {
   }
 
   const clientFolder = clientsFolder.createFolder(clientName);
-  copyFolderContents_(templateFolder, clientFolder);
+  // Skip stage/ deep structure — built later as a deferred step
+  copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE]);
 
   const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
   const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);

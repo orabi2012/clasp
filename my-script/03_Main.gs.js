@@ -132,6 +132,13 @@ function onEmployeeAssigned(e) {
   sheet.getRange(editedRow, COL_PREV_EMPLOYEE).setValue(newEmployee);
   SpreadsheetApp.flush();
 
+  // -- 10. Build stage year/month/day folders (deferred — slow operation) --
+  try {
+    buildClientStageFolders_(folderId);
+  } catch (err) {
+    Logger.log('Warning: stage folders: ' + err.message);
+  }
+
   Logger.log('Assigned ' + newEmployee + ' to client: ' + clientName);
 }
 
