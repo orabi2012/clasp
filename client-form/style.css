@@ -1,0 +1,80 @@
+:root { --brand: #0d6b6e; --brand-light: #e8f4f4; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: #f0f4f4;
+  min-height: 100vh;
+  padding: 1.5rem 0;
+}
+
+.form-card {
+  max-width: 660px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 32px rgba(0,0,0,.10);
+}
+
+.form-header {
+  background: var(--brand);
+  padding: 2rem;
+  color: #fff;
+}
+.form-header img { height: 44px; margin-bottom: .85rem; display: block; }
+.form-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+.form-header p  { margin: .3rem 0 0; opacity: .8; font-size: .9rem; }
+
+.form-body { background: #fff; padding: 2rem; }
+
+.section-label {
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--brand);
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--brand-light);
+  padding-bottom: .35rem;
+  margin: 1.75rem 0 1.1rem;
+}
+.section-label:first-child { margin-top: 0; }
+
+.form-label { font-weight: 600; color: #2d3748; font-size: .93rem; }
+.required   { color: #e53e3e; }
+
+.form-control, .form-select {
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 .2rem rgba(13,107,110,.15);
+}
+
+.btn-submit {
+  background: var(--brand);
+  border: none;
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: .75rem;
+  border-radius: 10px;
+  width: 100%;
+  transition: background .2s;
+}
+.btn-submit:hover  { background: #0a5558; color: #fff; }
+.btn-submit:active { background: #084446; color: #fff; }
+.btn-submit:disabled { opacity: .7; }
+
+.form-footer {
+  background: var(--brand);
+  padding: .9rem 2rem;
+  color: rgba(255,255,255,.75);
+  font-size: .82rem;
+  text-align: center;
+}
+.form-footer a { color: rgba(255,255,255,.9); text-decoration: none; }
+
+#successMsg { display: none; padding: 3rem 2rem; text-align: center; background: #fff; }
+#successMsg .icon { font-size: 3.5rem; margin-bottom: 1rem; }
+#successMsg h4 { color: var(--brand); font-weight: 700; }

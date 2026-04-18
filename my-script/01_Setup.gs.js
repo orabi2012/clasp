@@ -141,3 +141,53 @@ function fillExistingEmployeeFolderUrls() {
     }
   }
 }
+
+// ── Web App ───────────────────────────────────────────────────
+
+function doGet(e) {
+  // Email duplicate check: ?action=check&email=xxx
+  if (e && e.parameter && e.parameter.action === 'check') {
+    var email = (e.parameter.email || '').toLowerCase().trim();
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    var exists = false;
+    if (sheet && sheet.getLastRow() > 1) {
+      var emails = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues(); // column B
+      exists = emails.some(function(row) { return (row[0] || '').toLowerCase().trim() === email; });
+    }
+    return ContentService.createTextOutput(JSON.stringify({ exists: exists }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ error: 'Use the Netlify form.' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function submitClient(data) {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (!sheet) throw new Error('Sheet not found: ' + CUSTOMERS_SHEET_NAME);
+  sheet.appendRow([
+    new Date(),     // A - Timestamp
+    data.email,     // B - Email Address
+    data.name,      // C - الاسم
+    data.phone,     // D - رقم الهاتف
+    data.taxNumber, // E - الرقم الضريبي
+    data.crNumber,  // F - الرقم المميز
+    data.date1,     // G - تاريخ اول اقرار ضريبي
+    data.date2,     // H - تاريخ السجل التجاري
+    data.date3,     // I - تاريخ تقديم الاقرار الضريبي القادم
+    data.date4      // J - تاريخ تقديم الاقرار الزكوي القادم
+  ]);
+}
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    submitClient(data);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}

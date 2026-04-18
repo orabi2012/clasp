@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>نموذج تسجيل عميل جديد</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<div class="form-card">
+
+  <!-- Header -->
+  <div class="form-header">
+    <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
+    <h1>نموذج تسجيل عميل جديد</h1>
+    <p>يرجى تعبئة جميع الحقول المطلوبة بدقة</p>
+  </div>
+
+  <!-- Duplicate error state -->
+  <div id="duplicateMsg" style="display:none;text-align:center;padding:2rem 1rem;">
+    <div style="font-size:2.5rem;">⚠️</div>
+    <h4 style="color:#dc3545;margin-top:.5rem;">البريد الإلكتروني مسجل مسبقاً</h4>
+    <p class="text-muted mt-2">هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.</p>
+  </div>
+
+  <!-- Success state -->
+  <div id="successMsg">
+    <div class="icon">✅</div>
+    <h4>تم إرسال الطلب بنجاح</h4>
+    <p class="text-muted mt-2">شكراً لك، سنتواصل معك في أقرب وقت.</p>
+    <a href="#" onclick="resetForm()" class="btn btn-outline-secondary mt-3 px-4">إرسال طلب جديد</a>
+  </div>
+
+  <!-- Form body -->
+  <div class="form-body" id="formWrapper">
+    <form id="clientForm" novalidate>
+
+      <!-- ── Basic info ── -->
+      <div class="section-label">المعلومات الأساسية</div>
+
+      <div class="mb-3">
+        <label class="form-label">الاسم الكامل <span class="required">*</span></label>
+        <input type="text" class="form-control" id="clientName"
+               placeholder="مثال: محمد عبدالله" required>
+        <div class="invalid-feedback">الرجاء إدخال الاسم</div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">رقم الهاتف <span class="required">*</span></label>
+        <input type="tel" class="form-control" id="clientPhone"
+               placeholder="05xxxxxxxx" dir="ltr" required>
+        <div class="invalid-feedback">الرجاء إدخال رقم الهاتف</div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">البريد الإلكتروني <span class="required">*</span></label>
+        <input type="email" class="form-control" id="userEmail"
+               placeholder="example@gmail.com" dir="ltr" required>
+        <div class="mt-2" id="googleSignInBtn"></div>
+        <div class="invalid-feedback">الرجاء إدخال البريد الإلكتروني</div>
+      </div>
+
+      <div class="row g-3 mb-1">
+        <div class="col-md-6">
+          <label class="form-label">الرقم الضريبي <span class="required">*</span></label>
+          <input type="text" class="form-control" id="taxNumber"
+                 placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء إدخال الرقم الضريبي</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">الرقم المميز <span class="required">*</span></label>
+          <input type="text" class="form-control" id="crNumber"
+                 placeholder="الرقم المميز" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء إدخال الرقم المميز</div>
+        </div>
+      </div>
+
+      <!-- ── Dates ── -->
+      <div class="section-label">التواريخ</div>
+
+      <div class="row g-3 mb-1">
+        <div class="col-md-6">
+          <label class="form-label">تاريخ أول إقرار ضريبي <span class="required">*</span></label>
+          <input type="date" class="form-control" id="d1" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">تاريخ السجل التجاري <span class="required">*</span></label>
+          <input type="date" class="form-control" id="d2" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-0">
+        <div class="col-md-6">
+          <label class="form-label">الإقرار الضريبي القادم <span class="required">*</span></label>
+          <input type="date" class="form-control" id="d3" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">الإقرار الزكوي القادم <span class="required">*</span></label>
+          <input type="date" class="form-control" id="d4" dir="ltr" required>
+          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button type="submit" class="btn btn-submit" id="submitBtn">إرسال الطلب</button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <div class="form-footer">
+    <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
+    &nbsp;·&nbsp; جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd4b5qYK0F4IwOK44aBcbPGblCnx4yccppZ3rLmRUNuJgCHRBGpKMnn6kqggWL64Xy/exec';
+
+  // ── Google Sign-In ──
+  function onGoogleSignIn(response) {
+    var payload = JSON.parse(atob(response.credential.split('.')[1]));
+    var emailField = document.getElementById('userEmail');
+    emailField.value = payload.email || '';
+    emailField.readOnly = true;
+    emailField.classList.add('bg-light');
+  }
+
+  window.addEventListener('load', function() {
+    if (typeof google !== 'undefined' && google.accounts) {
+      google.accounts.id.initialize({
+        client_id: '275179342808-0a817jn8s24275ot6773hl4jn03a6e4n.apps.googleusercontent.com',
+        callback: onGoogleSignIn,
+        auto_select: true
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('googleSignInBtn'),
+        { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ar', width: 280 }
+      );
+      // Auto-populate email if user already has a Google session
+      google.accounts.id.prompt();
+    }
+  });
+
+  // ── Form submission ──
+  document.getElementById('clientForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    if (!this.checkValidity()) {
+      this.classList.add('was-validated');
+      return;
+    }
+
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'جارٍ الإرسال…';
+
+    var data = {
+      email:     document.getElementById('userEmail').value,
+      name:      document.getElementById('clientName').value,
+      phone:     document.getElementById('clientPhone').value,
+      taxNumber: document.getElementById('taxNumber').value,
+      crNumber:  document.getElementById('crNumber').value,
+      date1:     document.getElementById('d1').value,
+      date2:     document.getElementById('d2').value,
+      date3:     document.getElementById('d3').value,
+      date4:     document.getElementById('d4').value
+    };
+
+    // Check for duplicate email before submitting
+    fetch(APPS_SCRIPT_URL + '?action=check&email=' + encodeURIComponent(data.email))
+    .then(function(res) { return res.json(); })
+    .then(function(check) {
+      if (check.exists) {
+        btn.disabled = false;
+        btn.textContent = 'إرسال الطلب';
+        document.getElementById('formWrapper').style.display = 'none';
+        document.getElementById('duplicateMsg').style.display = 'block';
+        return;
+      }
+      // Email is new — proceed with POST
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+      })
+      .then(function() {
+        document.getElementById('formWrapper').style.display = 'none';
+        document.getElementById('successMsg').style.display  = 'block';
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'إرسال الطلب';
+        alert('حدث خطأ أثناء الإرسال: ' + err.message);
+      });
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'إرسال الطلب';
+      alert('حدث خطأ في التحقق: ' + err.message);
+    });
+  });
+
+  function resetForm() {
+    document.getElementById('clientForm').reset();
+    document.getElementById('clientForm').classList.remove('was-validated');
+    document.getElementById('submitBtn').disabled    = false;
+    document.getElementById('submitBtn').textContent = 'إرسال الطلب';
+    document.getElementById('formWrapper').style.display = '';
+    document.getElementById('successMsg').style.display  = 'none';
+    document.getElementById('duplicateMsg').style.display = 'none';
+    var emailField = document.getElementById('userEmail');
+    emailField.readOnly = false;
+    emailField.classList.remove('bg-light');
+    return false;
+  }
+</script>
+
+</body>
+</html>
