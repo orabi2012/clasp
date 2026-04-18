@@ -14,3 +14,6 @@ coverage
 node_modules
 tmp
 .clasprc.json
+
+# Local Netlify folder
+.netlify
