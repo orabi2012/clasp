@@ -57,7 +57,7 @@ function onEmployeeAssigned(e) {
       const result = createClientFolder(clientName, clientEmail);
       folderId  = result.folderId;
       folderUrl = result.folderUrl;
-      sheet.getRange(editedRow, COL_FOLDER_URL).setValue(folderUrl);
+      setFolderUrlChip_(sheet, editedRow, folderUrl);
       sheet.getRange(editedRow, COL_FOLDER_ID).setValue(folderId);
       SpreadsheetApp.flush();
     } catch (err) {
@@ -99,9 +99,10 @@ function onEmployeeAssigned(e) {
 
   // -- 6. Send emails --
   try {
+    const clientLang = rowData[COL_LANG - 1] || 'ar';
     sendEmailToEmployee(newEmployeeEmail, newEmployee, clientName, clientEmail, rowData, uploadsUrl, resultsUrl, stageUrl);
     if (clientEmail) {
-      sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl);
+      sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, clientLang);
     }
   } catch (err) {
     Logger.log('Warning: send email: ' + err.message);

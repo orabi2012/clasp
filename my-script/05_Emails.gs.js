@@ -25,7 +25,8 @@ function emailHeader_(bgColor, title, subtitle) {
     </div>`;
 }
 
-function emailFooter_() {
+function emailFooter_(lang) {
+  const sentBy   = lang === 'en' ? 'Sent automatically by' : 'تم الإرسال تلقائياً بواسطة';
   const logoHtml = COMPANY_LOGO_URL
     ? `<img src="${COMPANY_LOGO_URL}" alt="${COMPANY_NAME}" style="max-height:28px;max-width:100px;object-fit:contain;display:block;margin:0 auto 8px;" />`
     : '';
@@ -33,7 +34,7 @@ function emailFooter_() {
     <div style="background:#0d6b6e;border-radius:0 0 10px 10px;padding:16px 24px;text-align:center;">
       ${logoHtml}
       <p style="font-size:12px;color:rgba(255,255,255,0.75);margin:0;line-height:1.8;">
-        تم الإرسال تلقائياً بواسطة
+        ${sentBy}
         <a href="${COMPANY_URL}" style="color:#ffffff;text-decoration:none;font-weight:600;">${COMPANY_NAME}</a>
       </p>
     </div>`;
@@ -74,8 +75,9 @@ function infoCard_(title, color, rows) {
     </div>`;
 }
 
-function emailWrapper_(content) {
-  const logoBar = emailLogo_();
+function emailWrapper_(content, lang) {
+  const dir       = lang === 'en' ? 'ltr' : 'rtl';
+  const logoBar   = emailLogo_();
   const topRadius = COMPANY_LOGO_URL ? '0' : '10px';
   return `
 <!DOCTYPE html>
@@ -83,7 +85,7 @@ function emailWrapper_(content) {
 <body style="margin:0;padding:0;background:#edf2f7;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#edf2f7;padding:24px 8px;">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;font-family:'Segoe UI',Arial,sans-serif;direction:rtl;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;font-family:'Segoe UI',Arial,sans-serif;direction:${dir};">
         <tr><td>
           ${logoBar}
           <div style="border-radius:${topRadius} ${topRadius} 0 0;overflow:hidden;">
@@ -139,34 +141,51 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
 
 // -- sendEmailToClient ----------------------------------------
 
-function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl) {
-  const subject  = 'تم تجهيز ملفاتك - ' + clientName;
-  const empName  = employeeData ? employeeData.name  : 'غير متوفر';
-  const empEmail = employeeData ? employeeData.email : 'غير متوفر';
-  const empPhone = employeeData ? employeeData.phone : 'غير متوفر';
+function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, lang) {
+  const isEn    = lang === 'en';
+  const na      = isEn ? 'N/A' : 'غير متوفر';
+  const subject = isEn
+    ? 'Your Files Are Ready - ' + clientName
+    : 'تم تجهيز ملفاتك - ' + clientName;
+  const empName  = employeeData ? employeeData.name         : na;
+  const empEmail = employeeData ? employeeData.email        : na;
+  const empPhone = employeeData ? (employeeData.phone || na) : na;
 
   const content = `
-    ${emailHeader_('#1a73e8', 'تم تجهيز ملفاتك بنجاح', 'عزيزي ' + clientName + '، يمكنك الآن الوصول إلى مجلديك الخاصين')}
+    ${emailHeader_('#1a73e8',
+      isEn ? 'Your Files Are Ready' : 'تم تجهيز ملفاتك بنجاح',
+      isEn ? 'Dear ' + clientName + ', you can now access your personal folders'
+           : 'عزيزي ' + clientName + '، يمكنك الآن الوصول إلى مجلديك الخاصين')}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
 
-      ${folderCard_('#f59e0b', '#fffdf5', '#f59e0b', 'مجلد رفع الملفات', 'uploads',
-        'هذا المجلد مخصص لرفع مستنداتك وملفاتك المطلوبة.',
-        uploadsUrl, 'افتح مجلد الرفع')}
+      ${folderCard_('#f59e0b', '#fffdf5', '#f59e0b',
+        isEn ? 'Uploads' : 'مجلد رفع الملفات',
+        isEn ? 'Uploads Folder' : 'uploads',
+        isEn ? 'This folder is for uploading your documents and required files.'
+             : 'هذا المجلد مخصص لرفع مستنداتك وملفاتك المطلوبة.',
+        uploadsUrl,
+        isEn ? 'Open Uploads Folder' : 'افتح مجلد الرفع')}
 
-      ${folderCard_('#22c55e', '#f6fef9', '#22c55e', 'مجلد النتائج والتقارير', 'results',
-        'ستجد هنا النتائج والتقارير التي يضعها الموظف المسؤول عنك.',
-        resultsUrl, 'افتح مجلد النتائج')}
+      ${folderCard_('#22c55e', '#f6fef9', '#22c55e',
+        isEn ? 'Results' : 'مجلد النتائج والتقارير',
+        isEn ? 'Results Folder' : 'results',
+        isEn ? 'Here you will find reports and results added by your assigned employee.'
+             : 'ستجد هنا النتائج والتقارير التي يضعها الموظف المسؤول عنك.',
+        resultsUrl,
+        isEn ? 'Open Results Folder' : 'افتح مجلد النتائج')}
 
-      ${infoCard_('الموظف المسؤول عنك', '#0d6b6e', [
-        ['الاسم',    empName],
-        ['الايميل',  empEmail],
-        ['الهاتف',   empPhone || 'غير متوفر']
-      ])}
+      ${infoCard_(
+        isEn ? 'Your Assigned Employee' : 'الموظف المسؤول عنك',
+        '#0d6b6e', [
+          [isEn ? 'Name'  : 'الاسم',   empName],
+          [isEn ? 'Email' : 'الايميل', empEmail],
+          [isEn ? 'Phone' : 'الهاتف',  empPhone]
+        ])}
 
     </div>
-    ${emailFooter_()}`;
+    ${emailFooter_(lang)}`;
 
-  GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content), charset: 'UTF-8' });
+  GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
 }
 
 // -- sendCalendarNotification ---------------------------------

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>نموذج تسجيل عميل جديد</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+  <link id="bootstrap-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -14,25 +14,31 @@
 <div class="form-card">
 
   <!-- Header -->
-  <div class="form-header">
+  <div class="form-header" style="position:relative;">
+    <div id="langToggle" style="position:absolute;top:10px;left:10px;">
+      <button id="btn-ar" type="button" onclick="switchLang('ar')"
+        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
+      <button id="btn-en" type="button" onclick="switchLang('en')"
+        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+    </div>
     <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
-    <h1>نموذج تسجيل عميل جديد</h1>
-    <p>يرجى تعبئة جميع الحقول المطلوبة بدقة</p>
+    <h1 data-i18n="headerTitle">نموذج تسجيل عميل جديد</h1>
+    <p data-i18n="headerSubtitle">يرجى تعبئة جميع الحقول المطلوبة بدقة</p>
   </div>
 
   <!-- Duplicate error state -->
   <div id="duplicateMsg" style="display:none;text-align:center;padding:2rem 1rem;">
     <div style="font-size:2.5rem;">⚠️</div>
-    <h4 style="color:#dc3545;margin-top:.5rem;">البريد الإلكتروني مسجل مسبقاً</h4>
-    <p class="text-muted mt-2">هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.</p>
+    <h4 style="color:#dc3545;margin-top:.5rem;" data-i18n="dupTitle">البريد الإلكتروني مسجل مسبقاً</h4>
+    <p class="text-muted mt-2" data-i18n="dupBody">هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.</p>
   </div>
 
   <!-- Success state -->
   <div id="successMsg">
     <div class="icon">✅</div>
-    <h4>تم إرسال الطلب بنجاح</h4>
-    <p class="text-muted mt-2">شكراً لك، سنتواصل معك في أقرب وقت.</p>
-    <a href="#" onclick="resetForm()" class="btn btn-outline-secondary mt-3 px-4">إرسال طلب جديد</a>
+    <h4 data-i18n="successTitle">تم إرسال الطلب بنجاح</h4>
+    <p class="text-muted mt-2" data-i18n="successBody">شكراً لك، سنتواصل معك في أقرب وقت.</p>
+    <a href="#" onclick="resetForm()" class="btn btn-outline-secondary mt-3 px-4" data-i18n="successBtn">إرسال طلب جديد</a>
   </div>
 
   <!-- Form body -->
@@ -40,76 +46,85 @@
     <form id="clientForm" novalidate>
 
       <!-- ── Basic info ── -->
-      <div class="section-label">المعلومات الأساسية</div>
+      <div class="section-label" data-i18n="secBasic">المعلومات الأساسية</div>
 
       <div class="mb-3">
-        <label class="form-label">الاسم الكامل <span class="required">*</span></label>
+        <label class="form-label"><span data-i18n="lblName">الاسم الكامل</span> <span class="required">*</span></label>
         <input type="text" class="form-control" id="clientName"
-               placeholder="مثال: محمد عبدالله" required>
-        <div class="invalid-feedback">الرجاء إدخال الاسم</div>
+               data-i18n-placeholder="phName" placeholder="مثال: محمد عبدالله" required>
+        <div class="invalid-feedback" data-i18n="errName">الرجاء إدخال الاسم</div>
       </div>
 
       <div class="mb-3">
-        <label class="form-label">رقم الهاتف <span class="required">*</span></label>
+        <label class="form-label"><span data-i18n="lblPhone">رقم الهاتف</span> <span class="required">*</span></label>
         <input type="tel" class="form-control" id="clientPhone"
                placeholder="05xxxxxxxx" dir="ltr" required>
-        <div class="invalid-feedback">الرجاء إدخال رقم الهاتف</div>
+        <div class="invalid-feedback" data-i18n="errPhone">الرجاء إدخال رقم الهاتف</div>
       </div>
 
       <div class="mb-3">
-        <label class="form-label">البريد الإلكتروني <span class="required">*</span></label>
-        <input type="email" class="form-control" id="userEmail"
-               placeholder="example@gmail.com" dir="ltr" required>
-        <div class="mt-2" id="googleSignInBtn"></div>
-        <div class="invalid-feedback">الرجاء إدخال البريد الإلكتروني</div>
+        <label class="form-label"><span data-i18n="lblEmail">البريد الإلكتروني</span> <span class="required">*</span></label>
+        <!-- Hidden real input -->
+        <input type="email" class="form-control" id="userEmail" placeholder="example@gmail.com" dir="ltr" required style="display:none;">
+        <!-- GSI button (shown before sign-in) -->
+        <div id="gsiWrap">
+          <div id="googleSignInBtn" class="mb-1"></div>
+        </div>
+        <!-- Email badge (shown after sign-in) -->
+        <div id="emailBadge" style="display:none;align-items:center;gap:8px;background:#f0f4f4;border:1px solid #cde;border-radius:8px;padding:8px 12px;">
+          <span style="font-size:1rem;">✉️</span>
+          <span id="emailBadgeText" style="font-size:0.9rem;font-weight:600;color:#2d3748;direction:ltr;"></span>
+          <a href="#" onclick="clearEmail(); return false;" style="margin-inline-start:auto;font-size:0.75rem;color:#0d6b6e;" data-i18n="changeEmail">تغيير</a>
+        </div>
+        <div class="invalid-feedback" data-i18n="errEmail">الرجاء إدخال البريد الإلكتروني</div>
       </div>
 
       <div class="row g-3 mb-1">
         <div class="col-md-6">
-          <label class="form-label">الرقم الضريبي <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblTax">الرقم الضريبي</span> <span class="required">*</span></label>
           <input type="text" class="form-control" id="taxNumber"
                  placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء إدخال الرقم الضريبي</div>
+          <div class="invalid-feedback" data-i18n="errTax">الرجاء إدخال الرقم الضريبي</div>
         </div>
         <div class="col-md-6">
-          <label class="form-label">الرقم المميز <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblCR">الرقم المميز</span> <span class="required">*</span></label>
           <input type="text" class="form-control" id="crNumber"
-                 placeholder="الرقم المميز" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء إدخال الرقم المميز</div>
+                 data-i18n-placeholder="phCR" placeholder="الرقم المميز" dir="ltr" required>
+          <div class="invalid-feedback" data-i18n="errCR">الرجاء إدخال الرقم المميز</div>
         </div>
       </div>
 
       <!-- ── Dates ── -->
-      <div class="section-label">التواريخ</div>
+      <div class="section-label" data-i18n="secDates">التواريخ</div>
 
       <div class="row g-3 mb-1">
         <div class="col-md-6">
-          <label class="form-label">تاريخ أول إقرار ضريبي <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblD1">تاريخ أول إقرار ضريبي</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d1" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
         </div>
         <div class="col-md-6">
-          <label class="form-label">تاريخ السجل التجاري <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblD2">تاريخ السجل التجاري</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d2" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
         </div>
       </div>
 
       <div class="row g-3 mt-0">
         <div class="col-md-6">
-          <label class="form-label">الإقرار الضريبي القادم <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblD3">الإقرار الضريبي القادم</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d3" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
         </div>
         <div class="col-md-6">
-          <label class="form-label">الإقرار الزكوي القادم <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="lblD4">الإقرار الزكوي القادم</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d4" dir="ltr" required>
-          <div class="invalid-feedback">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
         </div>
       </div>
 
       <div class="mt-4">
-        <button type="submit" class="btn btn-submit" id="submitBtn">إرسال الطلب</button>
+        <button type="submit" class="btn btn-submit" id="submitBtn" data-i18n="btnSubmit">إرسال الطلب</button>
       </div>
 
     </form>
@@ -118,7 +133,7 @@
   <!-- Footer -->
   <div class="form-footer">
     <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
-    &nbsp;·&nbsp; جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية
+    &nbsp;·&nbsp; <span data-i18n="footerNote">جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية</span>
   </div>
 
 </div>
@@ -126,14 +141,141 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd4b5qYK0F4IwOK44aBcbPGblCnx4yccppZ3rLmRUNuJgCHRBGpKMnn6kqggWL64Xy/exec';
+  var LANG = 'ar';
+
+  var T = {
+    ar: {
+      dir: 'rtl', htmlLang: 'ar',
+      bootstrapCss:   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css',
+      pageTitle:      'نموذج تسجيل عميل جديد',
+      headerTitle:    'نموذج تسجيل عميل جديد',
+      headerSubtitle: 'يرجى تعبئة جميع الحقول المطلوبة بدقة',
+      dupTitle:       'البريد الإلكتروني مسجل مسبقاً',
+      dupBody:        'هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.',
+      successTitle:   'تم إرسال الطلب بنجاح',
+      successBody:    'شكراً لك، سنتواصل معك في أقرب وقت.',
+      successBtn:     'إرسال طلب جديد',
+      secBasic:       'المعلومات الأساسية',
+      secDates:       'التواريخ',
+      lblName:        'الاسم الكامل',
+      lblPhone:       'رقم الهاتف',
+      lblEmail:       'البريد الإلكتروني',
+      lblTax:         'الرقم الضريبي',
+      lblCR:          'الرقم المميز',
+      lblD1:          'تاريخ أول إقرار ضريبي',
+      lblD2:          'تاريخ السجل التجاري',
+      lblD3:          'الإقرار الضريبي القادم',
+      lblD4:          'الإقرار الزكوي القادم',
+      phName:         'مثال: محمد عبدالله',
+      phCR:           'الرقم المميز',
+      errName:        'الرجاء إدخال الاسم',
+      errPhone:       'الرجاء إدخال رقم الهاتف',
+      errEmail:       'الرجاء إدخال البريد الإلكتروني',
+      errTax:         'الرجاء إدخال الرقم الضريبي',
+      errCR:          'الرجاء إدخال الرقم المميز',
+      errDate:        'الرجاء تحديد التاريخ',
+      btnSubmit:      'إرسال الطلب',
+      btnSending:     'جارٍ الإرسال…',
+      footerNote:     'جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية',
+      enterManually:  'أو أدخل بريدك يدوياً',
+      changeEmail:    'تغيير',
+      gsiLocale:      'ar',
+      alertError:     'حدث خطأ أثناء الإرسال: ',
+      alertCheck:     'حدث خطأ في التحقق: '
+    },
+    en: {
+      dir: 'ltr', htmlLang: 'en',
+      bootstrapCss:   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+      pageTitle:      'New Client Registration',
+      headerTitle:    'New Client Registration',
+      headerSubtitle: 'Please fill in all required fields accurately',
+      dupTitle:       'Email Already Registered',
+      dupBody:        'This email address already exists in our records. Please contact the Statix team if you need assistance.',
+      successTitle:   'Request Submitted Successfully',
+      successBody:    'Thank you, we will be in touch shortly.',
+      successBtn:     'Submit New Request',
+      secBasic:       'Basic Information',
+      secDates:       'Dates',
+      lblName:        'Full Name',
+      lblPhone:       'Phone Number',
+      lblEmail:       'Email Address',
+      lblTax:         'Tax Number',
+      lblCR:          'CR Number',
+      lblD1:          'First Tax Declaration Date',
+      lblD2:          'Commercial Registration Date',
+      lblD3:          'Next Tax Declaration',
+      lblD4:          'Next Zakat Declaration',
+      phName:         'e.g. John Smith',
+      phCR:           'CR Number',
+      errName:        'Please enter your name',
+      errPhone:       'Please enter your phone number',
+      errEmail:       'Please enter your email',
+      errTax:         'Please enter your tax number',
+      errCR:          'Please enter your CR number',
+      errDate:        'Please select a date',
+      btnSubmit:      'Submit Request',
+      btnSending:     'Sending…',
+      footerNote:     'All fields marked with <span style="color:#f87171">*</span> are required',
+      enterManually:  'Or enter your email manually',
+      changeEmail:    'Change',
+      gsiLocale:      'en',
+      alertError:     'An error occurred while submitting: ',
+      alertCheck:     'An error occurred during validation: '
+    }
+  };
+
+  function switchLang(lang) {
+    LANG = lang;
+    var t = T[lang];
+    document.documentElement.lang = t.htmlLang;
+    document.documentElement.dir  = t.dir;
+    document.getElementById('bootstrap-css').href = t.bootstrapCss;
+    document.title = t.pageTitle;
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      if (t[key] !== undefined) el.innerHTML = t[key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n-placeholder');
+      if (t[key] !== undefined) el.placeholder = t[key];
+    });
+    var activeStyle   = 'background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:\'Cairo\',sans-serif;';
+    var inactiveStyle = 'background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:\'Cairo\',sans-serif;';
+    document.getElementById('btn-ar').style.cssText = (lang === 'ar' ? activeStyle : inactiveStyle) + 'border-radius:4px 0 0 4px;';
+    document.getElementById('btn-en').style.cssText = (lang === 'en' ? activeStyle : inactiveStyle) + 'border-radius:0 4px 4px 0;';
+    var toggle = document.getElementById('langToggle');
+    if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '10px'; }
+    else               { toggle.style.right = ''; toggle.style.left = '10px'; }
+    if (typeof google !== 'undefined' && google.accounts) {
+      document.getElementById('googleSignInBtn').innerHTML = '';
+      google.accounts.id.renderButton(
+        document.getElementById('googleSignInBtn'),
+        { theme: 'outline', size: 'large', text: 'signin_with', locale: t.gsiLocale, width: 280 }
+      );
+    }
+  }
 
   // ── Google Sign-In ──
   function onGoogleSignIn(response) {
     var payload = JSON.parse(atob(response.credential.split('.')[1]));
-    var emailField = document.getElementById('userEmail');
-    emailField.value = payload.email || '';
-    emailField.readOnly = true;
-    emailField.classList.add('bg-light');
+    setEmail(payload.email || '');
+  }
+
+  function setEmail(email) {
+    var field = document.getElementById('userEmail');
+    field.value = email;
+    document.getElementById('emailBadgeText').textContent = email;
+    document.getElementById('gsiWrap').style.display   = 'none';
+    document.getElementById('emailBadge').style.display = 'flex';
+    field.style.display = 'none';
+  }
+
+  function clearEmail() {
+    var field = document.getElementById('userEmail');
+    field.value = '';
+    field.style.display = 'none';
+    document.getElementById('emailBadge').style.display = 'none';
+    document.getElementById('gsiWrap').style.display    = '';
   }
 
   window.addEventListener('load', function() {
@@ -148,7 +290,9 @@
         { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ar', width: 280 }
       );
       // Auto-populate email if user already has a Google session
-      google.accounts.id.prompt();
+      google.accounts.id.prompt(function(notification) {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) { /* no-op */ }
+      });
     }
   });
 
@@ -161,11 +305,13 @@
       return;
     }
 
+    var t   = T[LANG];
     var btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.textContent = 'جارٍ الإرسال…';
+    btn.textContent = t.btnSending;
 
     var data = {
+      lang:      LANG,
       email:     document.getElementById('userEmail').value,
       name:      document.getElementById('clientName').value,
       phone:     document.getElementById('clientPhone').value,
@@ -183,7 +329,7 @@
     .then(function(check) {
       if (check.exists) {
         btn.disabled = false;
-        btn.textContent = 'إرسال الطلب';
+        btn.textContent = t.btnSubmit;
         document.getElementById('formWrapper').style.display = 'none';
         document.getElementById('duplicateMsg').style.display = 'block';
         return;
@@ -201,28 +347,27 @@
       })
       .catch(function(err) {
         btn.disabled = false;
-        btn.textContent = 'إرسال الطلب';
-        alert('حدث خطأ أثناء الإرسال: ' + err.message);
+        btn.textContent = t.btnSubmit;
+        alert(t.alertError + err.message);
       });
     })
     .catch(function(err) {
       btn.disabled = false;
-      btn.textContent = 'إرسال الطلب';
-      alert('حدث خطأ في التحقق: ' + err.message);
+      btn.textContent = t.btnSubmit;
+      alert(t.alertCheck + err.message);
     });
   });
 
   function resetForm() {
+    var t = T[LANG];
     document.getElementById('clientForm').reset();
     document.getElementById('clientForm').classList.remove('was-validated');
     document.getElementById('submitBtn').disabled    = false;
-    document.getElementById('submitBtn').textContent = 'إرسال الطلب';
+    document.getElementById('submitBtn').textContent = t.btnSubmit;
     document.getElementById('formWrapper').style.display = '';
     document.getElementById('successMsg').style.display  = 'none';
     document.getElementById('duplicateMsg').style.display = 'none';
-    var emailField = document.getElementById('userEmail');
-    emailField.readOnly = false;
-    emailField.classList.remove('bg-light');
+    clearEmail();
     return false;
   }
 </script>
