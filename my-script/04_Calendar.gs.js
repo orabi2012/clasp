@@ -34,10 +34,12 @@ function createOrUpdateEvent(title, date, employeeEmail, description, reminderDa
     return;
   }
 
-  const startOfDay = new Date(eventDate); startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay   = new Date(eventDate); endOfDay.setHours(23, 59, 59, 999);
+  // Search a wide window (past 2 years → future 2 years) to find any existing
+  // event with this title, regardless of what date it was previously set to.
+  const searchStart = new Date(); searchStart.setFullYear(searchStart.getFullYear() - 2);
+  const searchEnd   = new Date(); searchEnd.setFullYear(searchEnd.getFullYear() + 2);
 
-  const existing = calendar.getEvents(startOfDay, endOfDay);
+  const existing = calendar.getEvents(searchStart, searchEnd);
   for (let i = 0; i < existing.length; i++) {
     if (existing[i].getTitle() === title) {
       existing[i].deleteEvent();
