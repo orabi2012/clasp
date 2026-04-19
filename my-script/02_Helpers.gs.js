@@ -75,6 +75,8 @@ function createClientFolder(clientName, clientEmail) {
   const clientFolder = clientsFolder.createFolder(clientName);
   // Skip stage/ deep structure — built later as a deferred step
   copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE]);
+  // Ensure all required subfolders exist (in case template is missing any)
+  ensureFolders_(clientFolder);
 
   const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
   const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);
@@ -97,17 +99,55 @@ function createClientFolder(clientName, clientEmail) {
     );
   }
 
+  const guidelinesIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
+  if (clientEmail && guidelinesIter.hasNext()) {
+    Utilities.sleep(500);
+    Drive.Permissions.create(
+      { role: 'reader', type: 'user', emailAddress: clientEmail },
+      guidelinesIter.next().getId(),
+      { sendNotificationEmail: false }
+    );
+  }
+
   return { folderId: clientFolder.getId(), folderUrl: clientFolder.getUrl() };
 }
 
 // ── Permissions ───────────────────────────────────────────────
 
 function assignEmployeePermissions(clientFolderId, employeeEmail) {
+  const clientFolder = DriveApp.getFolderById(clientFolderId);
+
+  // Root: reader only (employee navigates but cannot edit at root level)
   Drive.Permissions.create(
-    { role: 'writer', type: 'user', emailAddress: employeeEmail },
+    { role: 'reader', type: 'user', emailAddress: employeeEmail },
     clientFolderId,
     { sendNotificationEmail: false }
   );
+  Utilities.sleep(300);
+
+  // uploads & stage & results: writer
+  const writableFolders = [FOLDER_UPLOADS, FOLDER_STAGE, FOLDER_RESULTS];
+  for (let i = 0; i < writableFolders.length; i++) {
+    const iter = clientFolder.getFoldersByName(writableFolders[i]);
+    if (iter.hasNext()) {
+      Drive.Permissions.create(
+        { role: 'writer', type: 'user', emailAddress: employeeEmail },
+        iter.next().getId(),
+        { sendNotificationEmail: false }
+      );
+      Utilities.sleep(300);
+    }
+  }
+
+  // ارشادات هامة: reader only
+  const guidelinesIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
+  if (guidelinesIter.hasNext()) {
+    Drive.Permissions.create(
+      { role: 'reader', type: 'user', emailAddress: employeeEmail },
+      guidelinesIter.next().getId(),
+      { sendNotificationEmail: false }
+    );
+  }
 }
 
 function removeEmployeePermissions(clientFolderId, employeeEmail) {
@@ -131,6 +171,12 @@ function removeEmployeePermissions(clientFolderId, employeeEmail) {
   const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);
   if (resultsIter.hasNext()) {
     try { resultsIter.next().removeEditor(employeeEmail); } catch (e) {}
+  }
+  Utilities.sleep(500);
+
+  const guidelinesIter2 = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
+  if (guidelinesIter2.hasNext()) {
+    try { guidelinesIter2.next().removeViewer(employeeEmail); } catch (e) {}
   }
 }
 

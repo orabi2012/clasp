@@ -9,9 +9,10 @@ const CLIENTS_FOLDER_ID   = '1xxNaC69sPg6ByM370ETpzdDgiEqUCxgC';
 const EMPLOYEES_FOLDER_ID = '1gXaQQUCpEYq3fjFtUYy2jp5YlEVFpcnn';
 
 // ── Folder Names ──────────────────────────────────────────────
-const FOLDER_UPLOADS = 'uploads';
-const FOLDER_RESULTS = 'results';
-const FOLDER_STAGE   = 'stage';
+const FOLDER_UPLOADS    = 'uploads';
+const FOLDER_RESULTS    = 'results';
+const FOLDER_STAGE      = 'stage';
+const FOLDER_GUIDELINES = 'ارشادات هامة';
 
 // ── Sheet Names ───────────────────────────────────────────────
 const CUSTOMERS_SHEET_NAME = 'customers';
@@ -47,6 +48,43 @@ const MONTH_NAMES = [
   '07-July',    '08-August',   '09-September',
   '10-October', '11-November', '12-December'
 ];
+
+// ── Required subfolders in every client/template folder ──────
+const REQUIRED_SUBFOLDERS = [
+  FOLDER_UPLOADS,
+  FOLDER_RESULTS,
+  FOLDER_STAGE,
+  FOLDER_GUIDELINES,
+];
+
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Ensures all required subfolders exist inside the template folder.
+ * Run once manually from the Apps Script editor when needed.
+ */
+function ensureTemplateFolders() {
+  const templateFolder = DriveApp.getFolderById(TEMPLATE_FOLDER_ID);
+  ensureFolders_(templateFolder);
+  Logger.log('Template folder check complete.');
+}
+
+/**
+ * Creates any missing required subfolders inside the given folder.
+ * @param {GoogleAppsScript.Drive.Folder} parentFolder
+ */
+function ensureFolders_(parentFolder) {
+  for (var i = 0; i < REQUIRED_SUBFOLDERS.length; i++) {
+    var name = REQUIRED_SUBFOLDERS[i];
+    var iter = parentFolder.getFoldersByName(name);
+    if (!iter.hasNext()) {
+      parentFolder.createFolder(name);
+      Logger.log('Created subfolder: ' + name);
+    } else {
+      Logger.log('Already exists: ' + name);
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 
