@@ -134,14 +134,14 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
         resultsUrl, 'افتح مجلد النتائج')}
 
     </div>
-    ${emailFooter_()}`;
+    ${emailFooter_('ar')}`;
 
-  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content), charset: 'UTF-8' });
+  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
 }
 
 // -- sendEmailToClient ----------------------------------------
 
-function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, lang) {
+function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, guidelinesUrl, lang) {
   const isEn    = lang === 'en';
   const na      = isEn ? 'N/A' : 'غير متوفر';
   const subject = isEn
@@ -174,6 +174,14 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
         resultsUrl,
         isEn ? 'Open Results Folder' : 'افتح مجلد النتائج')}
 
+      ${guidelinesUrl ? folderCard_('#6366f1', '#f5f3ff', '#6366f1',
+        isEn ? 'Important Guidelines' : 'ارشادات هامة',
+        isEn ? 'Guidelines Folder' : FOLDER_GUIDELINES,
+        isEn ? 'Important guidelines and instructions to help you use our services effectively.'
+             : 'ارشادات وتعليمات مهمة تساعدك على استخدام خدماتنا بشكل صحيح.',
+        guidelinesUrl,
+        isEn ? 'Open Guidelines' : 'افتح الارشادات') : ''}
+
       ${infoCard_(
         isEn ? 'Your Assigned Employee' : 'الموظف المسؤول عنك',
         '#0d6b6e', [
@@ -188,28 +196,127 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
   GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
 }
 
-// -- sendCalendarNotification ---------------------------------
+// -- sendCalendarEventNotification_ -------------------------
+// Branded Statix email sent when a calendar event is created/updated.
+// Replaces Google's plain invite email.
 
-function sendCalendarNotification(employeeEmail, title, eventDate, description) {
-  if (!employeeEmail) return;
+function sendCalendarEventNotification_(email, title, eventDate, description, lang) {
+  if (!email) return;
+  const isEn    = lang === 'en';
+  const dateStr = Utilities.formatDate(new Date(eventDate), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  const subject = isEn
+    ? 'Upcoming Declaration: ' + title
+    : 'موعد إقرار قادم: ' + title;
 
-  const dateStr = Utilities.formatDate(eventDate, Session.getScriptTimeZone(), 'dd/MM/yyyy');
-  const subject = 'تذكير: ' + title;
+  // Extract folder URL from description if present
+  const lines      = (description || '').split('\n');
+  const folderLine = lines.filter(function(l) { return l.indexOf('https://') === 0; })[0] || '';
+  const infoText   = lines[0] || title;
+
+  const rows = [
+    [isEn ? 'Event'  : 'الحدث',   title],
+    [isEn ? 'Date'   : 'التاريخ',
+      '<span style="color:#0d6b6e;font-size:16px;font-weight:700;">' + dateStr + '</span>'],
+    [isEn ? 'Reminder' : 'التذكير',
+      isEn ? CALENDAR_REMINDER_DAYS + ' days before'
+           : 'قبل ' + CALENDAR_REMINDER_DAYS + ' أيام']
+  ];
+  if (folderLine) {
+    rows.push([isEn ? 'Folder' : 'المجلد',
+      '<a href="' + folderLine + '" style="color:#0d6b6e;font-weight:600;">' +
+      (isEn ? 'Open Folder' : 'فتح المجلد') + '</a>']);
+  }
 
   const content = `
-    ${emailHeader_('#0d6b6e', 'تذكير بموعد هام', title)}
+    ${emailHeader_('#0d6b6e',
+      isEn ? 'Declaration Date Added to Your Calendar' : 'تم إضافة موعد الإقرار إلى تقويمك',
+      isEn ? 'The event has been added to your Google Calendar'
+           : 'تم إضافة الحدث إلى تقويم Google الخاص بك')}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
 
-      ${infoCard_('تفاصيل الموعد', '#0d6b6e', [
-        ['الحدث',     title],
-        ['التاريخ',   '<span style="color:#0d6b6e;font-size:16px;font-weight:700;">' + dateStr + '</span>'],
-        ['التفاصيل',  (description || '—').replace(/\n/g, '<br>')]
+      ${infoCard_(isEn ? 'Event Details' : 'تفاصيل الموعد', '#0d6b6e', rows)}
+
+      <p style="font-size:13px;color:#718096;margin:8px 0 0;line-height:1.8;">
+        ${isEn
+          ? 'You will receive an email reminder ' + CALENDAR_REMINDER_DAYS + ' days before this date.'
+          : 'ستصلك رسالة تذكير قبل ' + CALENDAR_REMINDER_DAYS + ' أيام من هذا التاريخ.'}
+      </p>
+
+    </div>
+    ${emailFooter_(lang)}`;
+
+  GmailApp.sendEmail(email, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
+}
+
+// -- sendDateChangedNotification_ ----------------------------
+// Called when a declaration date is edited in the sheet.
+// Notifies both employee (always ar) and client (their lang).
+
+function sendDateChangedNotification_(email, clientName, type, newDate, lang) {
+  if (!email) return;
+  const isEn    = lang === 'en';
+  const dateStr = Utilities.formatDate(new Date(newDate), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  const subject = isEn
+    ? 'Date Updated: ' + type + ' — ' + clientName
+    : 'تم تحديث الموعد: ' + type + ' — ' + clientName;
+
+  const content = `
+    ${emailHeader_('#e67e22',
+      isEn ? 'Declaration Date Updated' : 'تم تحديث تاريخ الإقرار',
+      clientName + ' · ' + type)}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      ${infoCard_(isEn ? 'Updated Details' : 'التفاصيل المحدّثة', '#e67e22', [
+        [isEn ? 'Client'   : 'العميل',        clientName],
+        [isEn ? 'Type'     : 'النوع',          type],
+        [isEn ? 'New Date' : 'التاريخ الجديد',
+          '<span style="color:#e67e22;font-size:16px;font-weight:700;">' + dateStr + '</span>']
       ])}
 
     </div>
-    ${emailFooter_()}`;
+    ${emailFooter_(lang)}`;
 
-  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content), charset: 'UTF-8' });
+  GmailApp.sendEmail(email, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
+}
+
+// -- sendDateReminder_ ----------------------------------------
+// Called by checkUpcomingDates (daily trigger).
+// Notifies both employee and client CALENDAR_REMINDER_DAYS before the date.
+
+function sendDateReminder_(email, clientName, type, date, daysLeft, folderUrl, lang) {
+  if (!email) return;
+  const isEn    = lang === 'en';
+  const dateStr = Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  const subject = isEn
+    ? 'Reminder: ' + type + ' in ' + daysLeft + ' days — ' + clientName
+    : 'تذكير: ' + type + ' بعد ' + daysLeft + ' أيام — ' + clientName;
+
+  const rows = [
+    [isEn ? 'Client'    : 'العميل',        clientName],
+    [isEn ? 'Type'      : 'النوع',          type],
+    [isEn ? 'Date'      : 'التاريخ',
+      '<span style="color:#dc3545;font-size:16px;font-weight:700;">' + dateStr + '</span>'],
+    [isEn ? 'Days Left' : 'الأيام المتبقية',
+      '<span style="color:#dc3545;font-weight:700;">' + daysLeft + '</span>']
+  ];
+  if (folderUrl) {
+    rows.push([isEn ? 'Folder' : 'المجلد',
+      '<a href="' + folderUrl + '" style="color:#0d6b6e;font-weight:600;">' +
+      (isEn ? 'Open Folder' : 'فتح المجلد') + '</a>']);
+  }
+
+  const content = `
+    ${emailHeader_('#dc3545',
+      isEn ? 'Upcoming Declaration Reminder' : 'تذكير بموعد إقرار قادم',
+      isEn ? daysLeft + ' days remaining' : 'تبقى ' + daysLeft + ' أيام')}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      ${infoCard_(isEn ? 'Reminder Details' : 'تفاصيل التذكير', '#dc3545', rows)}
+
+    </div>
+    ${emailFooter_(lang)}`;
+
+  GmailApp.sendEmail(email, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
 }
 
 // -- sendUploadNotification -----------------------------------
@@ -257,7 +364,7 @@ function sendUploadNotification(employeeEmail, employeeName, clientName, uploads
       </a>
 
     </div>
-    ${emailFooter_()}`;
+    ${emailFooter_('ar')}`;
 
-  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content), charset: 'UTF-8' });
+  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
 }

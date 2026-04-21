@@ -2,16 +2,17 @@
 // 01_Setup.gs
 // Configuration constants & one-time setup
 // ============================================================
-
+//08:27pm 2026-04-19
 // ── Drive Folder IDs ──────────────────────────────────────────
-const TEMPLATE_FOLDER_ID  = '1gGI4KXlKPEYWA6ks8MdT_Hft51YvHtB3';
-const CLIENTS_FOLDER_ID   = '1a5RXhBBS_jwQonPAjKeX1oKekR_EtebJ';
-const EMPLOYEES_FOLDER_ID = '1BMi2VbEsx6yFl3Bw5u0ZqoqCkvyk6fSa';
+const TEMPLATE_FOLDER_ID  = '1cyLrz5ytwi1H8Dm8EB0fEsN2MUN3EoDE';
+const CLIENTS_FOLDER_ID   = '11TTBnXnB8s2mb7BMetiqa0T-__eDjrZN';
+const EMPLOYEES_FOLDER_ID = '17q6SA-YhglvmUNC6ffYPqdWMLOn1PpOv';
 
 // ── Folder Names ──────────────────────────────────────────────
-const FOLDER_UPLOADS = 'uploads';
-const FOLDER_RESULTS = 'results';
-const FOLDER_STAGE   = 'stage';
+const FOLDER_UPLOADS    = 'uploads';
+const FOLDER_RESULTS    = 'results';
+const FOLDER_STAGE      = 'stage';
+const FOLDER_GUIDELINES = 'help';
 
 // ── Sheet Names ───────────────────────────────────────────────
 const CUSTOMERS_SHEET_NAME = 'customers';
@@ -26,8 +27,8 @@ const COL_EMPLOYEE       = 12; // L — assigned employee
 const COL_FOLDER_URL     = 13; // M — client folder URL
 const COL_FOLDER_ID      = 14; // N — client folder ID
 const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
-const COL_DATE_ZAKAT     = 9;  // I — next zakat declaration date
-const COL_DATE_TAX       = 10; // J — next tax declaration date
+const COL_DATE_TAX       = 9;  // I — next tax declaration date
+const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
 
 // ── Branding ──────────────────────────────────────────────────
 const COMPANY_NAME     = 'Statix';
@@ -38,7 +39,7 @@ const COMPANY_LOGO_URL = 'https://api.statix-sa.com/storage/logos/01KGES5RKAA6SV
 const CALENDAR_REMINDER_DAYS = 7;
 
 // ── Upload Monitoring ─────────────────────────────────────────
-const UPLOAD_CHECK_MINUTES = 5;
+const UPLOAD_CHECK_MINUTES = 30;
 
 // ── Month Names for Folder Structure ─────────────────────────
 const MONTH_NAMES = [
@@ -47,6 +48,43 @@ const MONTH_NAMES = [
   '07-July',    '08-August',   '09-September',
   '10-October', '11-November', '12-December'
 ];
+
+// ── Required subfolders in every client/template folder ──────
+const REQUIRED_SUBFOLDERS = [
+  FOLDER_UPLOADS,
+  FOLDER_RESULTS,
+  FOLDER_STAGE,
+  FOLDER_GUIDELINES,
+];
+
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Ensures all required subfolders exist inside the template folder.
+ * Run once manually from the Apps Script editor when needed.
+ */
+function ensureTemplateFolders() {
+  const templateFolder = DriveApp.getFolderById(TEMPLATE_FOLDER_ID);
+  ensureFolders_(templateFolder);
+  Logger.log('Template folder check complete.');
+}
+
+/**
+ * Creates any missing required subfolders inside the given folder.
+ * @param {GoogleAppsScript.Drive.Folder} parentFolder
+ */
+function ensureFolders_(parentFolder) {
+  for (var i = 0; i < REQUIRED_SUBFOLDERS.length; i++) {
+    var name = REQUIRED_SUBFOLDERS[i];
+    var iter = parentFolder.getFoldersByName(name);
+    if (!iter.hasNext()) {
+      parentFolder.createFolder(name);
+      Logger.log('Created subfolder: ' + name);
+    } else {
+      Logger.log('Already exists: ' + name);
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 
@@ -175,6 +213,12 @@ function setupTriggers() {
   ScriptApp.newTrigger('checkUploadsForNewFiles')
     .timeBased()
     .everyMinutes(UPLOAD_CHECK_MINUTES)
+    .create();
+
+  ScriptApp.newTrigger('checkUpcomingDates')
+    .timeBased()
+    .everyDays(1)
+    .atHour(11)   // 11 UTC = 08:00 Asia/Riyadh (UTC+3)
     .create();
 
   Logger.log('Triggers ready');

@@ -2,7 +2,7 @@
 // 01_Setup.gs
 // Configuration constants & one-time setup
 // ============================================================
-
+//08:27pm 2026-04-19
 // ── Drive Folder IDs ──────────────────────────────────────────
 const TEMPLATE_FOLDER_ID  = '1kvgxJN72BwUPuo3Pz0Zd92tYLjP9YsqA';
 const CLIENTS_FOLDER_ID   = '1xxNaC69sPg6ByM370ETpzdDgiEqUCxgC';
@@ -12,7 +12,7 @@ const EMPLOYEES_FOLDER_ID = '1gXaQQUCpEYq3fjFtUYy2jp5YlEVFpcnn';
 const FOLDER_UPLOADS    = 'uploads';
 const FOLDER_RESULTS    = 'results';
 const FOLDER_STAGE      = 'stage';
-const FOLDER_GUIDELINES = 'ارشادات هامة';
+const FOLDER_GUIDELINES = 'help';
 
 // ── Sheet Names ───────────────────────────────────────────────
 const CUSTOMERS_SHEET_NAME = 'customers';
@@ -27,8 +27,8 @@ const COL_EMPLOYEE       = 12; // L — assigned employee
 const COL_FOLDER_URL     = 13; // M — client folder URL
 const COL_FOLDER_ID      = 14; // N — client folder ID
 const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
-const COL_DATE_ZAKAT     = 9;  // I — next zakat declaration date
-const COL_DATE_TAX       = 10; // J — next tax declaration date
+const COL_DATE_TAX       = 9;  // I — next tax declaration date
+const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
 
 // ── Branding ──────────────────────────────────────────────────
 const COMPANY_NAME     = 'Statix';
@@ -213,6 +213,12 @@ function setupTriggers() {
   ScriptApp.newTrigger('checkUploadsForNewFiles')
     .timeBased()
     .everyMinutes(UPLOAD_CHECK_MINUTES)
+    .create();
+
+  ScriptApp.newTrigger('checkUpcomingDates')
+    .timeBased()
+    .everyDays(1)
+    .atHour(11)   // 11 UTC = 08:00 Asia/Riyadh (UTC+3)
     .create();
 
   Logger.log('Triggers ready');

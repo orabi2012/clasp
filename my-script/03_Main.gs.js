@@ -90,10 +90,11 @@ function onEmployeeAssigned(e) {
   }
 
   // -- 5. Resolve subfolder URLs --
-  const clientFolder = DriveApp.getFolderById(folderId);
-  const uploadsUrl   = getSubfolderUrl_(clientFolder, FOLDER_UPLOADS, folderUrl);
-  const resultsUrl   = getSubfolderUrl_(clientFolder, FOLDER_RESULTS, folderUrl);
-  const stageUrl     = getSubfolderUrl_(clientFolder, FOLDER_STAGE,   folderUrl);
+  const clientFolder  = DriveApp.getFolderById(folderId);
+  const uploadsUrl     = getSubfolderUrl_(clientFolder, FOLDER_UPLOADS,    folderUrl);
+  const resultsUrl     = getSubfolderUrl_(clientFolder, FOLDER_RESULTS,    folderUrl);
+  const stageUrl       = getSubfolderUrl_(clientFolder, FOLDER_STAGE,      folderUrl);
+  const guidelinesUrl  = getSubfolderUrl_(clientFolder, FOLDER_GUIDELINES, folderUrl);
 
   const employeeData = getEmployeeData(newEmployee, e.source);
 
@@ -102,7 +103,7 @@ function onEmployeeAssigned(e) {
     const clientLang = rowData[COL_LANG - 1] || 'ar';
     sendEmailToEmployee(newEmployeeEmail, newEmployee, clientName, clientEmail, rowData, uploadsUrl, resultsUrl, stageUrl);
     if (clientEmail) {
-      sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, clientLang);
+      sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, guidelinesUrl, clientLang);
     }
   } catch (err) {
     Logger.log('Warning: send email: ' + err.message);
@@ -156,8 +157,9 @@ function onDateChanged(e) {
   const rowData     = sheet.getRange(editedRow, 1, 1, COL_PREV_EMPLOYEE).getValues()[0];
   const clientName  = rowData[COL_NAME          - 1];
   const clientEmail = rowData[COL_EMAIL         - 1];
-  const employee    = rowData[COL_PREV_EMPLOYEE - 1];
+  const employee    = rowData[COL_PREV_EMPLOYEE - 1] || rowData[COL_EMPLOYEE - 1];
   const folderUrl   = rowData[COL_FOLDER_URL    - 1];
+  const clientLang  = rowData[COL_LANG          - 1] || 'ar';
 
   if (!employee) return;
 
@@ -175,5 +177,19 @@ function onDateChanged(e) {
     Logger.log('Calendar updated for client: ' + clientName);
   } catch (err) {
     Logger.log('Warning: calendar: ' + err.message);
+  }
+
+  // Notify both employee and client about the changed date
+  const changedType = editedCol === COL_DATE_TAX ? 'الإقرار الضريبي' : 'الإقرار الزكوي';
+  const changedDate = rowData[editedCol - 1];
+  try {
+    if (employeeEmail && changedDate) {
+      sendDateChangedNotification_(employeeEmail, clientName, changedType, changedDate, 'ar');
+    }
+    if (clientEmail && changedDate) {
+      sendDateChangedNotification_(clientEmail, clientName, changedType, changedDate, clientLang);
+    }
+  } catch (err) {
+    Logger.log('Warning: date change notification: ' + err.message);
   }
 }
