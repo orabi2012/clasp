@@ -37,6 +37,20 @@
 
     .back-btn       { font-family:'Cairo',sans-serif; font-size:.85rem; color:var(--brand); background:none; border:none; padding:0; cursor:pointer; }
     .back-btn:hover { text-decoration:underline; }
+
+    #headerControls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 576px) {
+      #headerControls { flex-direction: column; align-items: flex-start; gap: 6px; }
+    }
   </style>
 </head>
 <body>
@@ -45,16 +59,18 @@
 
   <!-- Header -->
   <div class="form-header" style="position:relative;">
-    <div id="langToggle" style="position:absolute;top:10px;left:10px;">
-      <button id="btn-ar" type="button" onclick="switchLang('ar')"
-        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
-      <button id="btn-en" type="button" onclick="switchLang('en')"
-        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
-    </div>
-    <div id="userChip" style="display:none;position:absolute;top:10px;right:10px;" class="user-chip">
-      <span id="chipName"></span>
-      <span id="chipRole" class="role-tag"></span>
-      <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.7);font-size:.75rem;margin-inline-start:6px;" data-i18n="logout">خروج</a>
+    <div id="headerControls">
+      <div id="langToggle">
+        <button id="btn-ar" type="button" onclick="switchLang('ar')"
+          style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
+        <button id="btn-en" type="button" onclick="switchLang('en')"
+          style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+      </div>
+      <div id="userChip" style="display:none;" class="user-chip">
+        <span id="chipName"></span>
+        <span id="chipRole" class="role-tag"></span>
+        <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.7);font-size:.75rem;margin-inline-start:6px;" data-i18n="logout">خروج</a>
+      </div>
     </div>
     <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
     <h1 data-i18n="headerTitle">لوحة متابعة العملاء</h1>
@@ -356,7 +372,7 @@ function switchLang(lang) {
   var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
   document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
   document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
-  var tgl = document.getElementById('langToggle');
+  var tgl = document.getElementById('headerControls');
   if (lang==='en') { tgl.style.left=''; tgl.style.right='10px'; }
   else             { tgl.style.right=''; tgl.style.left='10px'; }
   if (typeof google!=='undefined' && google.accounts) {
