@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // 02_Helpers.gs
 // Drive utilities, permissions, shortcuts & employee lookups
 // ============================================================
@@ -83,30 +83,21 @@ function createClientFolder(clientName, clientEmail) {
 
   if (clientEmail && uploadsIter.hasNext()) {
     Utilities.sleep(500);
-    Drive.Permissions.create(
-      { role: 'writer', type: 'user', emailAddress: clientEmail },
-      uploadsIter.next().getId(),
-      { sendNotificationEmail: false }
-    );
+    drivePermCreate_({ role: 'writer', type: 'user', emailAddress: clientEmail },
+      uploadsIter.next().getId());
   }
 
   if (clientEmail && resultsIter.hasNext()) {
     Utilities.sleep(500);
-    Drive.Permissions.create(
-      { role: 'reader', type: 'user', emailAddress: clientEmail },
-      resultsIter.next().getId(),
-      { sendNotificationEmail: false }
-    );
+    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
+      resultsIter.next().getId());
   }
 
   const guidelinesIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
   if (clientEmail && guidelinesIter.hasNext()) {
     Utilities.sleep(500);
-    Drive.Permissions.create(
-      { role: 'reader', type: 'user', emailAddress: clientEmail },
-      guidelinesIter.next().getId(),
-      { sendNotificationEmail: false }
-    );
+    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
+      guidelinesIter.next().getId());
   }
 
   return { folderId: clientFolder.getId(), folderUrl: clientFolder.getUrl() };
@@ -114,27 +105,36 @@ function createClientFolder(clientName, clientEmail) {
 
 // ── Permissions ───────────────────────────────────────────────
 
+/**
+ * Thin wrapper around Drive.Permissions.create that ignores the
+ * 'Empty response' false-error the Drive API sometimes returns even
+ * when the permission was successfully applied.
+ */
+function drivePermCreate_(resource, fileId) {
+  try {
+    Drive.Permissions.create(resource, fileId, { sendNotificationEmail: false });
+  } catch (err) {
+    if (err.message && err.message.indexOf('Empty response') !== -1) {
+      Logger.log('drivePermCreate_: ignoring Empty response for fileId=' + fileId);
+    } else {
+      throw err; // real error — propagate
+    }
+  }
+}
+
 function assignEmployeePermissions(clientFolderId, employeeEmail) {
   const clientFolder = DriveApp.getFolderById(clientFolderId);
 
   // Root: reader only (employee navigates but cannot edit at root level)
-  Drive.Permissions.create(
-    { role: 'reader', type: 'user', emailAddress: employeeEmail },
-    clientFolderId,
-    { sendNotificationEmail: false }
-  );
+  drivePermCreate_({ role: 'reader', type: 'user', emailAddress: employeeEmail }, clientFolderId);
   Utilities.sleep(300);
 
-  // uploads & stage & results: writer
-  const writableFolders = [FOLDER_UPLOADS, FOLDER_STAGE, FOLDER_RESULTS];
+  // stage & results: writer — uploads is intentionally excluded (files arrive via automation)
+  const writableFolders = [FOLDER_STAGE, FOLDER_RESULTS];
   for (let i = 0; i < writableFolders.length; i++) {
     const iter = clientFolder.getFoldersByName(writableFolders[i]);
     if (iter.hasNext()) {
-      Drive.Permissions.create(
-        { role: 'writer', type: 'user', emailAddress: employeeEmail },
-        iter.next().getId(),
-        { sendNotificationEmail: false }
-      );
+      drivePermCreate_({ role: 'writer', type: 'user', emailAddress: employeeEmail }, iter.next().getId());
       Utilities.sleep(300);
     }
   }
@@ -142,11 +142,7 @@ function assignEmployeePermissions(clientFolderId, employeeEmail) {
   // ارشادات هامة: reader only
   const guidelinesIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
   if (guidelinesIter.hasNext()) {
-    Drive.Permissions.create(
-      { role: 'reader', type: 'user', emailAddress: employeeEmail },
-      guidelinesIter.next().getId(),
-      { sendNotificationEmail: false }
-    );
+    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: employeeEmail }, guidelinesIter.next().getId());
   }
 }
 
@@ -310,3 +306,151 @@ function getEmployeeData(employeeName, spreadsheet) {
   return { name: employeeName, job: '', email: '', phone: '' };
 }
 
+// ── Supervisor Sheet Lookups ────────────────────────────────────
+
+function getSupervisorByName_(supervisorName, spreadsheet) {
+  const sheet = spreadsheet.getSheetByName(SUPERVISORS_SHEET_NAME);
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][COL_SUP_NAME - 1] === supervisorName) {
+      return {
+        name:  data[i][COL_SUP_NAME  - 1],
+        job:   data[i][COL_SUP_JOB   - 1],
+        email: data[i][COL_SUP_EMAIL - 1],
+        phone: data[i][COL_SUP_PHONE - 1]
+      };
+    }
+  }
+  return null;
+}
+
+function getSupervisorForEmployee_(employeeName, spreadsheet) {
+  const empSheet = spreadsheet.getSheetByName(EMPLOYEES_SHEET_NAME);
+  if (!empSheet) return null;
+  const data = empSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][COL_EMP_NAME - 1] === employeeName) {
+      const supervisorName = data[i][COL_EMP_SUPERVISOR - 1];
+      if (!supervisorName) return null;
+      return getSupervisorByName_(supervisorName, spreadsheet);
+    }
+  }
+  return null;
+}
+
+// ── Supervisor Folder & Shortcuts ──────────────────────────────────
+
+function getOrCreateSupervisorFolder_(supervisorName, supervisorEmail, spreadsheet) {
+  if (!SUPERVISORS_FOLDER_ID) {
+    Logger.log('getOrCreateSupervisorFolder_: SUPERVISORS_FOLDER_ID not set — skipping');
+    return null;
+  }
+  const supervisorsRoot = DriveApp.getFolderById(SUPERVISORS_FOLDER_ID);
+  const folderName      = supervisorName.replace(/\s+/g, '_');
+
+  const existing = supervisorsRoot.getFoldersByName(folderName);
+  let supFolder;
+  if (existing.hasNext()) {
+    supFolder = existing.next();
+  } else {
+    supFolder = supervisorsRoot.createFolder(folderName);
+    if (supervisorEmail) {
+      try {
+        Drive.Permissions.create(
+          { role: 'reader', type: 'user', emailAddress: supervisorEmail },
+          supFolder.getId(),
+          { sendNotificationEmail: false }
+        );
+      } catch (err) {
+        Logger.log('Warning: supervisor folder permission: ' + err.message);
+      }
+    }
+    Logger.log('Created supervisor folder: ' + folderName);
+  }
+
+  // Write URL chip into supervisors sheet col E
+  if (spreadsheet) {
+    try {
+      const supSheet = spreadsheet.getSheetByName(SUPERVISORS_SHEET_NAME);
+      if (supSheet) {
+        const data = supSheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][COL_SUP_NAME - 1] === supervisorName && !data[i][COL_SUP_FOLDER_URL - 1]) {
+            supSheet.getRange(i + 1, COL_SUP_FOLDER_URL)
+              .setRichTextValue(
+                SpreadsheetApp.newRichTextValue()
+                  .setText(supervisorName)
+                  .setLinkUrl(supFolder.getUrl())
+                  .build()
+              );
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      Logger.log('Warning: saving supervisor folder URL: ' + err.message);
+    }
+  }
+  return supFolder;
+}
+
+function addEmployeeShortcutToSupervisor_(supervisorName, supervisorEmail, employeeFolderId, employeeName, spreadsheet) {
+  const supFolder = getOrCreateSupervisorFolder_(supervisorName, supervisorEmail, spreadsheet);
+  if (!supFolder) return;
+
+  const existing = supFolder.getFilesByName(employeeName);
+  while (existing.hasNext()) {
+    if (existing.next().getMimeType() === 'application/vnd.google-apps.shortcut') {
+      Logger.log('Employee shortcut already in supervisor folder: ' + employeeName);
+      return;
+    }
+  }
+
+  Drive.Files.create({
+    name:            employeeName,
+    mimeType:        'application/vnd.google-apps.shortcut',
+    parents:         [supFolder.getId()],
+    shortcutDetails: { targetId: employeeFolderId }
+  });
+  Logger.log('Shortcut created: ' + employeeName + ' in supervisor folder of ' + supervisorName);
+}
+
+function removeEmployeeShortcutFromSupervisor_(supervisorName, employeeName) {
+  if (!SUPERVISORS_FOLDER_ID) return;
+  const supervisorsRoot = DriveApp.getFolderById(SUPERVISORS_FOLDER_ID);
+  const folderName      = supervisorName.replace(/\s+/g, '_');
+  const supFolderIter   = supervisorsRoot.getFoldersByName(folderName);
+  if (!supFolderIter.hasNext()) return;
+
+  const supFolder = supFolderIter.next();
+  const filesIter = supFolder.getFilesByName(employeeName);
+  while (filesIter.hasNext()) {
+    const file = filesIter.next();
+    if (file.getMimeType() === 'application/vnd.google-apps.shortcut') {
+      file.setTrashed(true);
+      Logger.log('Shortcut removed: ' + employeeName + ' from supervisor folder of ' + supervisorName);
+      return;
+    }
+  }
+}
+
+// ── Stage Day Folder ──────────────────────────────────────────
+
+/**
+ * Returns the day folder inside stage for the given Date,
+ * creating year/month/day levels on demand if any are missing.
+ * @param {GoogleAppsScript.Drive.Folder} stageFolder
+ * @param {Date} date
+ * @returns {GoogleAppsScript.Drive.Folder}
+ */
+function getOrCreateDayFolder_(stageFolder, date) {
+  const year  = date.getFullYear();
+  const month = date.getMonth();    // 0-based
+  const day   = date.getDate();
+
+  const yearFolder  = getOrCreateSubfolder_(stageFolder, String(year));
+  const monthFolder = getOrCreateSubfolder_(yearFolder,  MONTH_NAMES[month]);
+  const dayFolder   = getOrCreateSubfolder_(monthFolder, String(day).padStart(2, '0'));
+  return dayFolder;
+}

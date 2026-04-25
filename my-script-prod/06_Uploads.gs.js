@@ -1,20 +1,23 @@
 // ============================================================
 // 06_Uploads.gs
-// Poll client uploads/ folders for new files & notify employees
+// Poll client uploads/ folders — move files to stage/<y>/<m>/<d>/,
+// insert a row into the workflow sheet, notify employee + client.
 // ============================================================
 
 function checkUploadsForNewFiles() {
-  const props = PropertiesService.getScriptProperties();
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
   if (!sheet) return;
 
-  const data = sheet.getDataRange().getValues();
+  const data        = sheet.getDataRange().getValues();
+  const scriptOwner = Session.getEffectiveUser().getEmail();
 
   for (let i = 1; i < data.length; i++) {
-    const folderId   = data[i][COL_FOLDER_ID    - 1];
-    const employee   = data[i][COL_PREV_EMPLOYEE - 1];
-    const clientName = data[i][COL_NAME          - 1];
+    const folderId    = data[i][COL_FOLDER_ID    - 1];
+    const employee    = data[i][COL_PREV_EMPLOYEE - 1] || data[i][COL_EMPLOYEE - 1];
+    const clientName  = data[i][COL_NAME          - 1];
+    const clientEmail = data[i][COL_EMAIL         - 1];
+    const clientLang  = data[i][COL_LANG          - 1] || 'ar';
 
     if (!folderId || !employee) continue;
 
@@ -25,20 +28,32 @@ function checkUploadsForNewFiles() {
         continue;
       }
 
+      const supData  = getSupervisorForEmployee_(employee, ss);
+      const supName  = supData ? supData.name  : '';
+      const supEmail = supData ? supData.email : '';
+
       const clientFolder = DriveApp.getFolderById(folderId);
-      const uploadsIter  = clientFolder.getFoldersByName(FOLDER_UPLOADS);
+
+      // -- Locate uploads/ folder --
+      const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
       if (!uploadsIter.hasNext()) {
         Logger.log('[' + clientName + '] no uploads/ folder — skipping');
         continue;
       }
+      const uploadsFolder   = uploadsIter.next();
+      const uploadsFolderId = uploadsFolder.getId();
 
-      const uploadsFolder = uploadsIter.next();
-      const uploadsUrl    = uploadsFolder.getUrl();
+      // -- Locate stage/ folder --
+      const stageIter = clientFolder.getFoldersByName(FOLDER_STAGE);
+      if (!stageIter.hasNext()) {
+        Logger.log('[' + clientName + '] no stage/ folder — skipping');
+        continue;
+      }
+      const stageFolder = stageIter.next();
 
-      // -- Get all files currently in uploads/ --
-      const scriptOwner = Session.getEffectiveUser().getEmail();
-      const allFiles    = [];
-      const filesIter   = uploadsFolder.getFiles();
+      // -- Snapshot all non-script-owner files before moving --
+      const fileMetaList = [];
+      const filesIter    = uploadsFolder.getFiles();
       while (filesIter.hasNext()) {
         const f          = filesIter.next();
         const ownerEmail = f.getOwner() ? f.getOwner().getEmail() : '';
@@ -46,38 +61,102 @@ function checkUploadsForNewFiles() {
           Logger.log('[' + clientName + '] skipped script-owner file: ' + f.getName());
           continue;
         }
-        allFiles.push({ id: f.getId(), name: f.getName(), url: f.getUrl(), size: f.getSize() });
+        fileMetaList.push({
+          id:          f.getId(),
+          name:        f.getName(),
+          url:         f.getUrl(),
+          size:        f.getSize(),
+          dateCreated: f.getDateCreated()
+        });
       }
 
-      Logger.log('[' + clientName + '] files in uploads/: ' + allFiles.length);
-
-      if (allFiles.length === 0) {
-        // uploads/ is empty — clear stored IDs for this client
-        props.deleteProperty('notified_' + folderId);
+      if (fileMetaList.length === 0) {
+        Logger.log('[' + clientName + '] uploads/ empty — nothing to do');
         continue;
       }
 
-      // -- Load already-notified file IDs --
-      const storedRaw    = props.getProperty('notified_' + folderId);
-      const notifiedIds  = storedRaw ? JSON.parse(storedRaw) : [];
+      Logger.log('[' + clientName + '] processing ' + fileMetaList.length + ' file(s)');
 
-      Logger.log('[' + clientName + '] already notified IDs: ' + notifiedIds.length);
+      // Group by day folder for batched notifications
+      const dayGroups = {}; // { dayFolderId: { dayFolderUrl, date, files[] } }
 
-      // -- Find files NOT yet notified --
-      const newFiles = allFiles.filter(function(f) {
-        return notifiedIds.indexOf(f.id) === -1;
-      });
+      for (let fi = 0; fi < fileMetaList.length; fi++) {
+        const meta       = fileMetaList[fi];
+        const uploadDate = meta.dateCreated;
 
-      Logger.log('[' + clientName + '] new (unnotified) files: ' + newFiles.length);
+        try {
+          // Ensure day folder exists
+          const dayFolder = getOrCreateDayFolder_(stageFolder, uploadDate);
 
-      if (newFiles.length > 0) {
-        sendUploadNotification(employeeEmail, employee, clientName, uploadsUrl, newFiles);
-        Logger.log('[' + clientName + '] notified ' + employee + ' about ' + newFiles.length + ' file(s)');
+          // Move file from uploads/ to the day folder
+          Drive.Files.update({}, meta.id, null, {
+            addParents:    dayFolder.getId(),
+            removeParents: uploadsFolderId
+          });
+
+          const year  = uploadDate.getFullYear();
+          const month = MONTH_NAMES[uploadDate.getMonth()];
+          const day   = uploadDate.getDate();
+
+          // Insert a row into the workflow sheet
+          try {
+            wfInsertRow_({
+              clientFolderId: folderId,
+              clientName:     clientName,
+              clientEmail:    clientEmail,
+              clientLang:     clientLang,
+              empName:        employee,
+              empEmail:       employeeEmail,
+              supName:        supName,
+              supEmail:       supEmail,
+              year:           year,
+              month:          month,
+              day:            day,
+              fileName:       meta.name,
+              fileUrl:        meta.url,
+              uploadedAt:     uploadDate
+            });
+          } catch (wfErr) {
+            Logger.log('[' + clientName + '] workflow insert failed for "' + meta.name + '": ' + wfErr.message);
+          }
+
+          // Group for notification email
+          const dayKey = dayFolder.getId();
+          if (!dayGroups[dayKey]) {
+            dayGroups[dayKey] = {
+              dayFolderUrl: dayFolder.getUrl(),
+              date:         uploadDate,
+              files:        []
+            };
+          }
+          dayGroups[dayKey].files.push({ name: meta.name, url: meta.url, size: meta.size });
+
+          Logger.log('[' + clientName + '] moved: ' + meta.name + ' → stage/' + year + '/' + month);
+
+        } catch (moveErr) {
+          Logger.log('[' + clientName + '] failed to process "' + meta.name + '": ' + moveErr.message);
+        }
       }
 
-      // -- Update stored IDs = only files still in uploads/ (clears moved files automatically) --
-      const currentIds = allFiles.map(function(f) { return f.id; });
-      props.setProperty('notified_' + folderId, JSON.stringify(currentIds));
+      // -- Send one notification pair per day folder --
+      for (const dayKey in dayGroups) {
+        const group   = dayGroups[dayKey];
+        const dateStr = Utilities.formatDate(group.date, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+
+        try {
+          sendUploadNotification(employeeEmail, employee, clientName, group.dayFolderUrl, group.files, dateStr, WEB_APP_URL);
+        } catch (err) {
+          Logger.log('[' + clientName + '] employee notification error: ' + err.message);
+        }
+
+        try {
+          if (clientEmail) {
+            sendFilesReceivedEmail_(clientEmail, clientName, group.files, dateStr, clientLang);
+          }
+        } catch (err) {
+          Logger.log('[' + clientName + '] client notification error: ' + err.message);
+        }
+      }
 
     } catch (err) {
       Logger.log('[' + clientName + '] error: ' + err.message);
@@ -86,3 +165,4 @@ function checkUploadsForNewFiles() {
 
   Logger.log('Upload check completed');
 }
+

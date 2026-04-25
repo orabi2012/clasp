@@ -6,7 +6,8 @@
 // ── Drive Folder IDs ──────────────────────────────────────────
 const TEMPLATE_FOLDER_ID  = '1kvgxJN72BwUPuo3Pz0Zd92tYLjP9YsqA';
 const CLIENTS_FOLDER_ID   = '1xxNaC69sPg6ByM370ETpzdDgiEqUCxgC';
-const EMPLOYEES_FOLDER_ID = '1gXaQQUCpEYq3fjFtUYy2jp5YlEVFpcnn';
+const EMPLOYEES_FOLDER_ID   = '1gXaQQUCpEYq3fjFtUYy2jp5YlEVFpcnn';
+const SUPERVISORS_FOLDER_ID = '1B3XQAZC4Ho6b7Ey4zsdW7hvxVrQg0fRO'; // ← create parent folder in Drive and fill in per environment
 
 // ── Folder Names ──────────────────────────────────────────────
 const FOLDER_UPLOADS    = 'uploads';
@@ -15,11 +16,14 @@ const FOLDER_STAGE      = 'stage';
 const FOLDER_GUIDELINES = 'help';
 
 // ── Sheet Names ───────────────────────────────────────────────
-const CUSTOMERS_SHEET_NAME = 'customers';
-const EMPLOYEES_SHEET_NAME = 'employees';
+const CUSTOMERS_SHEET_NAME      = 'customers';
+const EMPLOYEES_SHEET_NAME      = 'employees';
+const SUPERVISORS_SHEET_NAME    = 'supervisors';
+const WORKFLOW_SHEET_NAME       = 'workflow';
+const WORKFLOW_AUDIT_SHEET_NAME = 'workflow_audit';
 
 // ── Column Indices (1-based) ──────────────────────────────────
-const COL_EMP_FOLDER_URL = 6;  // F — employee folder URL
+// Customers sheet
 const COL_NAME           = 3;  // C — client name
 const COL_EMAIL          = 2;  // B — client email
 const COL_LANG           = 11; // K — client language (ar/en)
@@ -30,6 +34,22 @@ const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
 const COL_DATE_TAX       = 9;  // I — next tax declaration date
 const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
 
+// Employees sheet
+const COL_EMP_NAME            = 1; // A — name
+const COL_EMP_JOB             = 2; // B — job title
+const COL_EMP_EMAIL           = 3; // C — email
+const COL_EMP_PHONE           = 4; // D — phone
+const COL_EMP_SUPERVISOR      = 5; // E — assigned supervisor (dropdown from supervisors sheet)
+const COL_EMP_FOLDER_URL      = 6; // F — employee Drive folder URL
+const COL_EMP_PREV_SUPERVISOR = 7; // G — previous supervisor name (for shortcut move)
+
+// Supervisors sheet
+const COL_SUP_NAME       = 1; // A — name
+const COL_SUP_JOB        = 2; // B — job title
+const COL_SUP_EMAIL      = 3; // C — email
+const COL_SUP_PHONE      = 4; // D — phone
+const COL_SUP_FOLDER_URL = 5; // E — supervisor Drive folder URL
+
 // ── Branding ──────────────────────────────────────────────────
 const COMPANY_NAME     = 'Statix';
 const COMPANY_URL      = 'https://statix-sa.com/ar';
@@ -39,7 +59,46 @@ const COMPANY_LOGO_URL = 'https://api.statix-sa.com/storage/logos/01KGES5RKAA6SV
 const CALENDAR_REMINDER_DAYS = 7;
 
 // ── Upload Monitoring ─────────────────────────────────────────
-const UPLOAD_CHECK_MINUTES = 5;
+const UPLOAD_CHECK_MINUTES    = 5;
+
+// ── Supervisor Notification Batch ─────────────────────────────
+const SUPERVISOR_NOTIFY_HOURS = 4; // hours between pending-submission digest emails to supervisors
+
+// ── Workflow Sheet ────────────────────────────────────────────
+// workflow columns (1-based)
+const WF_COL_ID              = 1;  // A — uuid
+const WF_COL_CLIENT_FID      = 2;  // B — clientFolderId
+const WF_COL_CLIENT_NAME     = 3;  // C
+const WF_COL_CLIENT_EMAIL    = 4;  // D
+const WF_COL_CLIENT_LANG     = 5;  // E
+const WF_COL_EMP_NAME        = 6;  // F
+const WF_COL_EMP_EMAIL       = 7;  // G
+const WF_COL_SUP_NAME_WF     = 8;  // H
+const WF_COL_SUP_EMAIL_WF    = 9;  // I
+const WF_COL_YEAR            = 10; // J
+const WF_COL_MONTH           = 11; // K
+const WF_COL_DAY             = 12; // L
+const WF_COL_FILE_NAME       = 13; // M
+const WF_COL_FILE_URL        = 14; // N
+const WF_COL_UPLOADED_AT     = 15; // O
+const WF_COL_FINISHED        = 16; // P
+const WF_COL_NOTE            = 17; // Q
+const WF_COL_STATUS          = 18; // R — new|in_progress|submitted|approved_sent|returned
+const WF_COL_SUBMITTED_AT    = 19; // S
+const WF_COL_SENT_AT         = 20; // T
+const WF_COL_RETURN_COUNT    = 21; // U
+const WF_COL_LAST_RETURN_NOTE= 22; // V
+const WF_COL_LAST_UPDATED    = 23; // W
+const WF_NUM_COLS            = 23;
+
+// workflow_audit columns (1-based)
+const WFA_COL_TIMESTAMP   = 1; // A
+const WFA_COL_ACTOR       = 2; // B
+const WFA_COL_ACTION      = 3; // C
+const WFA_COL_WF_ID       = 4; // D
+const WFA_COL_CLIENT_NAME = 5; // E
+const WFA_COL_FILE_NAME   = 6; // F
+const WFA_COL_DETAILS     = 7; // G
 
 // ── Month Names for Folder Structure ─────────────────────────
 const MONTH_NAMES = [
@@ -200,6 +259,10 @@ function setupTriggers() {
     ScriptApp.deleteTrigger(t);
   });
 
+  // Save main spreadsheet ID for cross-spreadsheet lookups (tracker menu)
+  PropertiesService.getScriptProperties()
+    .setProperty('MAIN_SS_ID', SpreadsheetApp.getActiveSpreadsheet().getId());
+
   ScriptApp.newTrigger('onEmployeeAssigned')
     .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
     .onEdit()
@@ -221,7 +284,98 @@ function setupTriggers() {
     .atHour(11)   // 11 UTC = 08:00 Asia/Riyadh (UTC+3)
     .create();
 
+  ScriptApp.newTrigger('notifyPendingSupervisors')
+    .timeBased()
+    .everyHours(SUPERVISOR_NOTIFY_HOURS)
+    .create();
+
+  // ── Auto-create supervisors sheet ────────────────────────
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let supSheet = ss.getSheetByName(SUPERVISORS_SHEET_NAME);
+  if (!supSheet) {
+    supSheet = ss.insertSheet(SUPERVISORS_SHEET_NAME);
+    const supHeaders = ['الاسم', 'الوظيفة', 'البريد الإلكتروني', 'الهاتف', 'مجلد المشرف'];
+    supSheet.getRange(1, 1, 1, supHeaders.length)
+      .setValues([supHeaders])
+      .setBackground('#0d6b6e')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+    supSheet.setFrozenRows(1);
+    supSheet.setRowHeight(1, 32);
+    for (let c = 1; c <= supHeaders.length; c++) supSheet.autoResizeColumn(c);
+    Logger.log('Supervisors sheet created');
+  }
+
+  // ── Ensure employees sheet has supervisor columns E & G ───
+  const empSheet = ss.getSheetByName(EMPLOYEES_SHEET_NAME);
+  if (empSheet) {
+    while (empSheet.getMaxColumns() < COL_EMP_PREV_SUPERVISOR) {
+      empSheet.insertColumnAfter(empSheet.getMaxColumns());
+    }
+    const hdrStyle = function(cell) {
+      cell.setBackground('#1a73e8').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+    };
+    hdrStyle(empSheet.getRange(1, COL_EMP_SUPERVISOR));
+    empSheet.getRange(1, COL_EMP_SUPERVISOR).setValue('المشرف');
+    hdrStyle(empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR));
+    empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR).setValue('prev_supervisor');
+
+    // Dropdown for col E: sourced from supervisors sheet col A
+    // Apply only to rows that already have data — new rows get it via onEdit.
+    const supLastRow  = supSheet.getLastRow();
+    const empLastRow  = empSheet.getLastRow(); // actual last row with data
+    if (supLastRow > 1 && empLastRow > 1) {
+      const supRule = SpreadsheetApp.newDataValidation()
+        .requireValueInRange(supSheet.getRange(2, COL_SUP_NAME, supLastRow - 1, 1), true)
+        .setAllowInvalid(false)
+        .build();
+      empSheet.getRange(2, COL_EMP_SUPERVISOR, empLastRow - 1, 1).setDataValidation(supRule);
+    }
+    Logger.log('Employees sheet supervisor column ready');
+  }
+
+  // ── Ensure workflow + workflow_audit sheets exist ────────────
+  ensureWorkflowSheets_(ss);
+
   Logger.log('Triggers ready');
+}
+
+function ensureWorkflowSheets_(ss) {
+  // workflow sheet
+  let wfSheet = ss.getSheetByName(WORKFLOW_SHEET_NAME);
+  if (!wfSheet) {
+    wfSheet = ss.insertSheet(WORKFLOW_SHEET_NAME);
+    const wfHeaders = [
+      'id', 'clientFolderId', 'clientName', 'clientEmail', 'clientLang',
+      'empName', 'empEmail', 'supName', 'supEmail',
+      'year', 'month', 'day', 'fileName', 'fileUrl', 'uploadedAt',
+      'finished', 'note', 'status',
+      'submittedAt', 'sentAt', 'returnCount', 'lastReturnNote', 'lastUpdated'
+    ];
+    wfSheet.getRange(1, 1, 1, wfHeaders.length).setValues([wfHeaders])
+      .setBackground('#0d6b6e').setFontColor('#ffffff').setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    wfSheet.setFrozenRows(1);
+    wfSheet.setRowHeight(1, 32);
+    wfSheet.autoResizeColumns(1, wfHeaders.length);
+    Logger.log('workflow sheet created');
+  }
+
+  // workflow_audit sheet
+  let auditSheet = ss.getSheetByName(WORKFLOW_AUDIT_SHEET_NAME);
+  if (!auditSheet) {
+    auditSheet = ss.insertSheet(WORKFLOW_AUDIT_SHEET_NAME);
+    const auditHeaders = ['timestamp', 'actorEmail', 'action', 'workflowId', 'clientName', 'fileName', 'detailsJson'];
+    auditSheet.getRange(1, 1, 1, auditHeaders.length).setValues([auditHeaders])
+      .setBackground('#555').setFontColor('#ffffff').setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    auditSheet.setFrozenRows(1);
+    auditSheet.setRowHeight(1, 32);
+    auditSheet.autoResizeColumns(1, auditHeaders.length);
+    Logger.log('workflow_audit sheet created');
+  }
 }
 
 function resetUploadCheckTimestamp() {
@@ -277,73 +431,5 @@ function fillExistingEmployeeFolderUrls() {
   }
 }
 
-// ── Web App ───────────────────────────────────────────────────
-
-function doGet(e) {
-  // Email duplicate check: ?action=check&email=xxx
-  if (e && e.parameter && e.parameter.action === 'check') {
-    var email = (e.parameter.email || '').toLowerCase().trim();
-    var ss    = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
-    var exists = false;
-    if (sheet && sheet.getLastRow() > 1) {
-      var emails = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues(); // column B
-      exists = emails.some(function(row) { return (row[0] || '').toLowerCase().trim() === email; });
-    }
-    return ContentService.createTextOutput(JSON.stringify({ exists: exists }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  return ContentService.createTextOutput(JSON.stringify({ error: 'Use the Netlify form.' }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function submitClient(data) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
-  if (!sheet) throw new Error('Sheet not found: ' + CUSTOMERS_SHEET_NAME);
-  var lang = data.lang || 'ar';
-  sheet.appendRow([
-    new Date(),          // A - Timestamp
-    data.email,          // B - Email Address
-    data.name,           // C - الاسم
-    data.phone,          // D - رقم الهاتف
-    data.taxNumber,      // E - الرقم الضريبي
-    data.crNumber,       // F - الرقم المميز
-    data.date1,          // G - تاريخ اول اقرار ضريبي
-    data.date2,          // H - تاريخ السجل التجاري
-    data.date3,          // I - تاريخ تقديم الاقرار الضريبي القادم
-    data.date4,          // J - تاريخ تقديم الاقرار الزكوي القادم
-    lang                 // K - Client language (ar/en)
-  ]);
-
-  // Style the new row's lang cell
-  var newRow = sheet.getLastRow();
-  var langCell = sheet.getRange(newRow, COL_LANG);
-  langCell
-    .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
-    .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  // Alternating row background for the rest of the row
-  var bg = newRow % 2 === 0 ? '#e8f0fe' : '#ffffff';
-  sheet.getRange(newRow, 1, 1, 15).setBackground(bg);
-  // Re-apply lang cell styling on top
-  langCell
-    .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
-    .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-}
-
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    submitClient(data);
-    return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+// ── Web App ──────────────────────────────────────────────────
+// doGet / doPost are defined in 10_Portal_Api.gs.js

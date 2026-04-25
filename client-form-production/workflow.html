@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة متابعة العملاء</title>
+  <link id="bootstrap-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer onload="initGSI()"></script>
+  <style>
+    .wf-card   { max-width: 1060px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 32px rgba(0,0,0,.10); }
+    .wf-body   { background: #fff; padding: 1.5rem 2rem 2rem; }
+    .user-chip { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.15); border-radius:20px; padding:4px 14px; font-size:.85rem; }
+    .role-tag  { font-size:.7rem; background:rgba(255,255,255,.25); border-radius:10px; padding:2px 8px; }
+
+    .sbadge              { font-family:'Cairo',sans-serif; font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+    .sbadge-new          { background:#e8f4f4; color:#0d6b6e; }
+    .sbadge-in_progress  { background:#fff3cd; color:#856404; }
+    .sbadge-returned     { background:#fde8e8; color:#9b1c1c; }
+    .sbadge-submitted    { background:#cfe2ff; color:#084298; }
+    .sbadge-approved_sent{ background:#d1e7dd; color:#0f5132; }
+
+    .client-card       { border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; margin-bottom:.75rem; cursor:pointer; transition:box-shadow .15s; }
+    .client-card:hover { box-shadow:0 2px 12px rgba(13,107,110,.15); }
+    .client-card.active{ border-color:var(--brand); box-shadow:0 0 0 2px rgba(13,107,110,.2); }
+    .count-chip        { font-size:.72rem; font-family:'Cairo',sans-serif; font-weight:700; padding:2px 8px; border-radius:10px; background:#e8f4f4; color:#0d6b6e; }
+
+    .rows-table th  { font-size:.78rem; color:#6c757d; font-weight:600; }
+    .rows-table td  { font-size:.83rem; vertical-align:middle; }
+    .note-input     { font-family:'Cairo',sans-serif; font-size:.8rem; border-radius:8px; resize:none; }
+    .btn-action     { font-family:'Cairo',sans-serif; font-size:.78rem; font-weight:600; padding:4px 12px; border-radius:8px; }
+    .filter-bar     { background:#f8f9fa; border-radius:10px; padding:.7rem 1rem; margin-bottom:1.1rem; }
+
+    #loginSection, #loadingSection, #unauthorizedSection { padding:3rem 2rem; text-align:center; background:#fff; }
+    #clientDetail { border-top:2px solid #e8f4f4; margin-top:1rem; padding-top:1rem; }
+
+    .back-btn       { font-family:'Cairo',sans-serif; font-size:.85rem; color:var(--brand); background:none; border:none; padding:0; cursor:pointer; }
+    .back-btn:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+
+<div class="wf-card" id="appCard">
+
+  <!-- Header -->
+  <div class="form-header" style="position:relative;">
+    <div id="langToggle" style="position:absolute;top:10px;left:10px;">
+      <button id="btn-ar" type="button" onclick="switchLang('ar')"
+        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
+      <button id="btn-en" type="button" onclick="switchLang('en')"
+        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+    </div>
+    <div id="userChip" style="display:none;position:absolute;top:10px;right:10px;" class="user-chip">
+      <span id="chipName"></span>
+      <span id="chipRole" class="role-tag"></span>
+      <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.7);font-size:.75rem;margin-inline-start:6px;" data-i18n="logout">خروج</a>
+    </div>
+    <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
+    <h1 data-i18n="headerTitle">لوحة متابعة العملاء</h1>
+    <p data-i18n="headerSubtitle">إدارة ومتابعة ملفات العملاء</p>
+  </div>
+
+  <!-- Login -->
+  <div id="loginSection">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔐</div>
+    <h5 style="color:#2d3748;font-weight:700;" data-i18n="loginTitle">تسجيل الدخول</h5>
+    <p class="text-muted" style="font-size:.9rem;" data-i18n="loginBody">استخدم حساب Google الخاص بك</p>
+    <div id="gsiWrap" style="display:flex;justify-content:center;margin-top:1.5rem;">
+      <div id="googleSignInBtn"></div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingSection" style="display:none;">
+    <div class="spinner-border" style="color:var(--brand);width:2.5rem;height:2.5rem;" role="status"></div>
+    <p class="mt-3 text-muted" data-i18n="loading">جارٍ التحقق…</p>
+  </div>
+
+  <!-- Unauthorized -->
+  <div id="unauthorizedSection" style="display:none;">
+    <div style="font-size:2.5rem;">🚫</div>
+    <h5 style="color:#dc3545;margin-top:.75rem;" data-i18n="unauthTitle">غير مصرح لك بالدخول</h5>
+    <p class="text-muted mt-2" data-i18n="unauthBody">بريدك الإلكتروني غير مسجل في النظام.</p>
+    <button type="button" class="btn btn-outline-secondary mt-3 px-4" onclick="doLogout()" data-i18n="tryAnother">تجربة بريد آخر</button>
+  </div>
+
+  <!-- Employee dashboard -->
+  <div id="empDashboard" class="wf-body" style="display:none;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="section-label mb-0" data-i18n="secMyClients">عملائي</div>
+      <button type="button" class="btn btn-outline-secondary btn-sm"
+        style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadMyClients()" data-i18n="btnRefresh">تحديث</button>
+    </div>
+    <div class="filter-bar d-flex align-items-center gap-2 flex-wrap">
+      <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterClient">العميل:</label>
+      <select id="empClientFilter" class="form-select form-select-sm"
+        style="width:auto;min-width:220px;font-family:'Cairo',sans-serif;font-size:.82rem;" onchange="renderClientList()">
+        <option value="" data-i18n="filterAllClients">كل العملاء</option>
+      </select>
+    </div>
+    <div id="empClientList"></div>
+
+    <div id="clientDetail" style="display:none;">
+      <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
+        <button class="back-btn" onclick="closeDetail()" data-i18n="btnBack">← رجوع</button>
+        <strong id="detailClientName" style="font-size:.95rem;"></strong>
+        <span id="detailClientEmail" style="font-size:.8rem;color:#6c757d;direction:ltr;"></span>
+      </div>
+
+      <div class="filter-bar d-flex align-items-center gap-3 flex-wrap">
+        <div>
+          <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterStatus">الحالة:</label>
+          <select id="empRowStatusFilter" class="form-select form-select-sm d-inline-block"
+            style="width:auto;font-family:'Cairo',sans-serif;font-size:.82rem;" onchange="renderEmpRows()">
+            <option value="" data-i18n="filterAll">الكل</option>
+            <option value="new">جديد</option>
+            <option value="in_progress">قيد المراجعة</option>
+            <option value="returned">مُرجَّع</option>
+            <option value="submitted">بانتظار المشرف</option>
+            <option value="approved_sent">أُرسل للعميل</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+          style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="reloadRows()" data-i18n="btnRefresh">تحديث</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover rows-table align-middle">
+          <thead>
+            <tr>
+              <th data-i18n="thFile">الملف</th>
+              <th data-i18n="thDate">التاريخ</th>
+              <th data-i18n="thStatus">الحالة</th>
+              <th data-i18n="thFinished">مراجَع ✓</th>
+              <th data-i18n="thNote">ملاحظة</th>
+              <th data-i18n="thActions">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="empRowsBody">
+            <tr><td colspan="6" class="text-center text-muted py-4" data-i18n="noRows">لا توجد سجلات</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Submit day -->
+      <div id="submitDaySection" style="display:none;" class="p-3 mt-1" style="background:#f8f9fa;border-radius:10px;">
+        <p style="font-size:.85rem;color:#2d3748;margin-bottom:.75rem;" data-i18n="submitDayHint">اختر يوماً لإرسال ملفاته إلى المشرف</p>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <select id="submitDayPicker" class="form-select form-select-sm"
+            style="width:auto;font-family:'Cairo',sans-serif;font-size:.82rem;"></select>
+          <button type="button" class="btn btn-sm btn-action" style="background:var(--brand);color:#fff;"
+            onclick="doSubmitDay()" id="btnSubmitDay" data-i18n="btnSubmitDay">إرسال اليوم للمشرف</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supervisor dashboard -->
+  <div id="supDashboard" class="wf-body" style="display:none;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="section-label mb-0" data-i18n="secPending">الملفات بانتظار المراجعة</div>
+      <button type="button" class="btn btn-outline-secondary btn-sm"
+        style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadPending()" data-i18n="btnRefresh">تحديث</button>
+    </div>
+    <div class="filter-bar d-flex align-items-center gap-2 flex-wrap">
+      <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterEmp">الموظف:</label>
+      <select id="supEmpFilter" class="form-select form-select-sm"
+        style="width:auto;min-width:220px;font-family:'Cairo',sans-serif;font-size:.82rem;" onchange="renderSupClientList()">
+        <option value="" data-i18n="filterAllEmps">كل الموظفين</option>
+      </select>
+      <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterStatus">الحالة:</label>
+      <select id="supStatusFilter" class="form-select form-select-sm"
+        style="width:auto;min-width:180px;font-family:'Cairo',sans-serif;font-size:.82rem;" onchange="renderSupClientList()">
+        <option value="" data-i18n="filterAllStatuses">كل الحالات</option>
+        <option value="new" data-i18n="sNew">جديد</option>
+        <option value="in_progress" data-i18n="sInProgress">قيد المراجعة</option>
+        <option value="returned" data-i18n="sReturned">مُرجَّع</option>
+        <option value="submitted" data-i18n="sSubmitted">بانتظار المشرف</option>
+        <option value="approved_sent" data-i18n="sApproved">أُرسل للعميل</option>
+      </select>
+    </div>
+    <div id="supClientList"></div>
+
+    <div id="supDetail" style="display:none;">
+      <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
+        <button class="back-btn" onclick="closeSupDetail()" data-i18n="btnBack">← رجوع</button>
+        <strong id="supDetailClientName" style="font-size:.95rem;"></strong>
+        <span style="font-size:.8rem;color:#6c757d;" id="supDetailEmpName"></span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover rows-table align-middle">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"
+                class="form-check-input" style="width:1.1em;height:1.1em;"></th>
+              <th data-i18n="thFile">الملف</th>
+              <th data-i18n="thDate">التاريخ</th>
+              <th data-i18n="thStatus">الحالة</th>
+              <th data-i18n="thNote">ملاحظة الموظف</th>
+              <th data-i18n="thReturnCount">مرات الإرجاع</th>
+            </tr>
+          </thead>
+          <tbody id="supRowsBody"></tbody>
+        </table>
+      </div>
+
+      <div class="d-flex gap-2 mt-3 flex-wrap" id="supActionBar">
+        <button type="button" class="btn btn-action" style="background:var(--brand);color:#fff;"
+          onclick="doApproveAndSend()" id="btnApprove" data-i18n="btnApprove">✓ إرسال للعميل</button>
+        <button type="button" class="btn btn-action btn-outline-warning"
+          onclick="openReturnModal()" id="btnReturn" data-i18n="btnReturn">↩ إرجاع للموظف</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="form-footer">
+    <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
+    &nbsp;·&nbsp; <span data-i18n="footerNote">نظام إدارة العملاء الداخلي</span>
+  </div>
+</div>
+
+<!-- Return note modal -->
+<div class="modal fade" id="returnModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="font-family:'Cairo',sans-serif;">
+      <div class="modal-header">
+        <h5 class="modal-title" data-i18n="modalReturnTitle">سبب الإرجاع</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" style="font-weight:600;font-size:.9rem;" data-i18n="modalReturnLabel">أدخل ملاحظة للموظف (إلزامي)</label>
+        <textarea id="returnNoteArea" class="form-control" rows="3"
+          style="font-family:'Cairo',sans-serif;border-radius:8px;"
+          data-i18n-placeholder="modalReturnPlaceholder" placeholder="سبب الإرجاع…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="btnCancel">إلغاء</button>
+        <button type="button" class="btn btn-warning" onclick="doReturnToEmp()" id="btnConfirmReturn" data-i18n="btnConfirmReturn">إرجاع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div aria-live="polite" aria-atomic="true"
+  style="position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:9999;min-width:240px;">
+  <div id="toastEl" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMsg" style="font-family:'Cairo',sans-serif;font-size:.88rem;"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────
+var API_URL       = 'https://script.google.com/macros/s/AKfycbxn2uct1ot2xn3zP5MVPTj4D330qoe5aaIWXUHG78CBN6QNByl_s5uQ4ApTj3xn3dTT/exec';
+var GSI_CLIENT_ID = '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com';
+
+// ── State ─────────────────────────────────────────────────────
+var LANG                  = 'ar';
+var idToken               = null;
+var currentUser           = null;
+var myClients             = [];
+var currentClientFolderId = null;
+var allRows               = [];
+var pendingData           = [];
+
+// ── i18n ──────────────────────────────────────────────────────
+var T = {
+  ar: {
+    dir:'rtl', htmlLang:'ar',
+    bootstrapCss:'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css',
+    pageTitle:'لوحة متابعة العملاء', headerTitle:'لوحة متابعة العملاء',
+    headerSubtitle:'إدارة ومتابعة ملفات العملاء',
+    loginTitle:'تسجيل الدخول', loginBody:'استخدم حساب Google الخاص بك',
+    loading:'جارٍ التحقق…', unauthTitle:'غير مصرح لك',
+    unauthBody:'بريدك الإلكتروني غير مسجل في النظام.',
+    tryAnother:'تجربة بريد آخر', logout:'خروج',
+    secMyClients:'عملائي', secPending:'كل الملفات',
+    filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnBack:'← رجوع',
+    thFile:'الملف', thDate:'التاريخ', thStatus:'الحالة',
+    thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع',
+    noRows:'لا توجد سجلات', noClients:'لا توجد عملاء',
+    sNew:'جديد', sInProgress:'قيد المراجعة', sReturned:'مُرجَّع',
+    sSubmitted:'بانتظار المشرف', sApproved:'أُرسل للعميل',
+    btnSaveNote:'حفظ', btnMarkDone:'مراجَع',
+    submitDayHint:'اختر يوماً لإرسال ملفاته إلى المشرف',
+    btnSubmitDay:'إرسال اليوم للمشرف',
+    btnApprove:'✓ إرسال للعميل', btnReturn:'↩ إرجاع للموظف',
+    modalReturnTitle:'سبب الإرجاع', modalReturnLabel:'أدخل ملاحظة للموظف (إلزامي)',
+    modalReturnPlaceholder:'سبب الإرجاع…',
+    btnCancel:'إلغاء', btnConfirmReturn:'إرجاع',
+    toastSaved:'تم الحفظ ✓', toastError:'حدث خطأ، حاول مرة أخرى',
+    toastSubmitted:'تم الإرسال للمشرف ✓', toastApproved:'تم الإرسال للعميل ✓',
+    toastReturned:'تم الإرجاع للموظف ✓', selectOne:'اختر ملفاً على الأقل',
+    roleEmp:'موظف', roleSup:'مشرف',
+    footerNote:'نظام إدارة العملاء الداخلي',
+    filesTotal:'ملف', filesPending:'قيد العمل',
+    gsiLocale:'ar'
+  },
+  en: {
+    dir:'ltr', htmlLang:'en',
+    bootstrapCss:'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+    pageTitle:'Client Workflow Dashboard', headerTitle:'Client Workflow Dashboard',
+    headerSubtitle:'Manage and track client files',
+    loginTitle:'Sign In', loginBody:'Use your Google account to access the dashboard',
+    loading:'Verifying…', unauthTitle:'Access Denied',
+    unauthBody:'Your email is not registered in the system.',
+    tryAnother:'Try another account', logout:'Sign out',
+    secMyClients:'My Clients', secPending:'All Files',
+    filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnBack:'← Back',
+    thFile:'File', thDate:'Date', thStatus:'Status',
+    thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns',
+    noRows:'No records', noClients:'No clients',
+    sNew:'New', sInProgress:'In Progress', sReturned:'Returned',
+    sSubmitted:'Pending Supervisor', sApproved:'Sent to Client',
+    btnSaveNote:'Save', btnMarkDone:'Mark Done',
+    submitDayHint:'Select a day to submit its files to the supervisor',
+    btnSubmitDay:'Submit Day to Supervisor',
+    btnApprove:'✓ Send to Client', btnReturn:'↩ Return to Employee',
+    modalReturnTitle:'Return Reason', modalReturnLabel:'Add a note for the employee (required)',
+    modalReturnPlaceholder:'Return reason…',
+    btnCancel:'Cancel', btnConfirmReturn:'Return',
+    toastSaved:'Saved ✓', toastError:'An error occurred, please try again',
+    toastSubmitted:'Submitted to supervisor ✓', toastApproved:'Sent to client ✓',
+    toastReturned:'Returned to employee ✓', selectOne:'Select at least one file',
+    roleEmp:'Employee', roleSup:'Supervisor',
+    footerNote:'Internal Client Management System',
+    filesTotal:'files', filesPending:'in progress',
+    gsiLocale:'en'
+  }
+};
+
+// ── Language ──────────────────────────────────────────────────
+function switchLang(lang) {
+  LANG = lang;
+  var t = T[lang];
+  document.documentElement.lang = t.htmlLang;
+  document.documentElement.dir  = t.dir;
+  document.getElementById('bootstrap-css').href = t.bootstrapCss;
+  document.title = t.pageTitle;
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n');
+    if (t[k] !== undefined) el.innerHTML = t[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n-placeholder');
+    if (t[k] !== undefined) el.placeholder = t[k];
+  });
+  var aS = "background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
+  var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
+  document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
+  document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
+  var tgl = document.getElementById('langToggle');
+  if (lang==='en') { tgl.style.left=''; tgl.style.right='10px'; }
+  else             { tgl.style.right=''; tgl.style.left='10px'; }
+  if (typeof google!=='undefined' && google.accounts) {
+    document.getElementById('googleSignInBtn').innerHTML = '';
+    google.accounts.id.renderButton(document.getElementById('googleSignInBtn'),
+      { theme:'outline', size:'large', text:'signin_with', locale:t.gsiLocale, width:280 });
+  }
+}
+
+// ── Sections ─────────────────────────────────────────────────
+function showSection(id) {
+  ['loginSection','loadingSection','unauthorizedSection','empDashboard','supDashboard'].forEach(function(s) {
+    document.getElementById(s).style.display = 'none';
+  });
+  document.getElementById(id).style.display = '';
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, isError) {
+  var el = document.getElementById('toastEl');
+  el.classList.remove('bg-success','bg-danger');
+  el.classList.add(isError ? 'bg-danger' : 'bg-success');
+  document.getElementById('toastMsg').textContent = msg;
+  bootstrap.Toast.getOrCreateInstance(el, { delay:3000 }).show();
+}
+
+// ── Status badge ──────────────────────────────────────────────
+function badge(status) {
+  var t = T[LANG];
+  var map = { new:t.sNew, in_progress:t.sInProgress, returned:t.sReturned, submitted:t.sSubmitted, approved_sent:t.sApproved };
+  return '<span class="sbadge sbadge-'+esc(status)+'">'+(map[status]||esc(status))+'</span>';
+}
+
+// ── XSS escape ────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── API ───────────────────────────────────────────────────────
+function apiGet(params, cb) {
+  var url = API_URL + '?id_token=' + encodeURIComponent(idToken);
+  Object.keys(params).forEach(function(k) {
+    url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  });
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(d) { cb(null, d); })
+    .catch(function(e) { cb(e, null); });
+}
+
+function apiPost(body, cb) {
+  body.id_token = idToken;
+  fetch(API_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain' },
+    body: JSON.stringify(body)
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { cb(null, d); })
+    .catch(function(e) { cb(e, null); });
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+function onGoogleSignIn(response) {
+  idToken = response.credential;
+  var parts   = idToken.split('.');
+  var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+  authenticate(payload.email || '', payload.name || '');
+}
+
+function authenticate(email, name) {
+  showSection('loadingSection');
+  apiGet({ action:'me' }, function(err, res) {
+    if (err || !res || !res.ok || !res.data || !res.data.role) {
+      showSection('unauthorizedSection');
+      return;
+    }
+    currentUser = { email:email, name:name, role:res.data.role };
+    updateChip();
+    if (res.data.role === 'supervisor') {
+      showSection('supDashboard');
+      loadPending();
+    } else {
+      showSection('empDashboard');
+      loadMyClients();
+    }
+  });
+}
+
+function updateChip() {
+  var t = T[LANG];
+  document.getElementById('chipName').textContent = currentUser.name;
+  document.getElementById('chipRole').textContent = currentUser.role==='supervisor' ? t.roleSup : t.roleEmp;
+  document.getElementById('userChip').style.display = '';
+}
+
+function doLogout() {
+  idToken = null; currentUser = null; myClients = []; allRows = []; pendingData = [];
+  closeDetail(); closeSupDetail();
+  document.getElementById('userChip').style.display = 'none';
+  showSection('loginSection');
+  if (typeof google!=='undefined' && google.accounts) google.accounts.id.disableAutoSelect();
+}
+
+// ── Employee: client list ─────────────────────────────────────
+function loadMyClients() {
+  document.getElementById('empClientList').innerHTML =
+    '<div class="text-center py-4"><div class="spinner-border spinner-border-sm" style="color:var(--brand)"></div></div>';
+  apiGet({ action:'listMyClients' }, function(err, res) {
+    if (err || !res || !res.ok) { showToast(T[LANG].toastError, true); return; }
+    myClients = res.data || [];
+    renderClientList();
+  });
+}
+
+function renderClientList() {
+  var t    = T[LANG];
+  var list = document.getElementById('empClientList');
+  var filterSel = document.getElementById('empClientFilter');
+
+  // Populate filter dropdown options (preserve selection)
+  var prev = filterSel.value;
+  var opts = ['<option value="">'+t.filterAllClients+'</option>'];
+  myClients.forEach(function(c) {
+    opts.push('<option value="'+esc(c.clientFolderId)+'">'+esc(c.clientName)+'</option>');
+  });
+  filterSel.innerHTML = opts.join('');
+  if (prev && myClients.some(function(c){return c.clientFolderId===prev;})) filterSel.value = prev;
+
+  var f    = filterSel.value;
+  var list2 = f ? myClients.filter(function(c){return c.clientFolderId===f;}) : myClients;
+
+  if (!list2.length) {
+    list.innerHTML = '<p class="text-muted text-center py-4">'+t.noClients+'</p>';
+    return;
+  }
+  list.innerHTML = list2.map(function(c) {
+    var total    = c.counts ? (c.counts.total  || 0) : 0;
+    var pending  = c.counts ? ((c.counts.new||0)+(c.counts.in_progress||0)+(c.counts.returned||0)) : 0;
+    var approved = c.counts ? (c.counts.approved_sent || 0) : 0;
+    var cid      = esc(c.clientFolderId);
+    return [
+      '<div class="client-card" data-cid="'+cid+'" onclick="openClientDetailById(\''+cid+'\')">',
+        '<div class="d-flex justify-content-between align-items-start">',
+          '<div>',
+            '<div style="font-weight:700;font-size:.95rem;">'+esc(c.clientName)+'</div>',
+            '<div style="font-size:.78rem;color:#6c757d;direction:ltr;">'+esc(c.clientEmail)+'</div>',
+          '</div>',
+          '<div class="d-flex gap-2 align-items-center flex-wrap">',
+            '<span class="count-chip">'+total+' '+t.filesTotal+'</span>',
+            (pending  ? '<span class="count-chip" style="background:#fff3cd;color:#856404;">'+pending+' '+t.filesPending+'</span>' : ''),
+            (approved ? '<span class="count-chip" style="background:#d1e7dd;color:#0f5132;">'+approved+' '+t.sApproved+'</span>' : ''),
+          '</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }).join('');
+}
+
+function openClientDetailById(cid) {
+  var c = myClients.find(function(x){return x.clientFolderId===cid;});
+  if (!c) return;
+  currentClientFolderId = c.clientFolderId;
+  document.querySelectorAll('.client-card').forEach(function(el){el.classList.remove('active');});
+  var cc = document.querySelector('.client-card[data-cid="'+cid+'"]');
+  if (cc) cc.classList.add('active');
+  document.getElementById('detailClientName').textContent  = c.clientName;
+  document.getElementById('detailClientEmail').textContent = c.clientEmail;
+  document.getElementById('clientDetail').style.display = '';
+  reloadRows();
+}
+
+function reloadRows() {
+  if (!currentClientFolderId) return;
+  document.getElementById('empRowsBody').innerHTML =
+    '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm" style="color:var(--brand)"></div></td></tr>';
+  document.getElementById('submitDaySection').style.display = 'none';
+  var params = { action:'listRows', clientFolderId:currentClientFolderId };
+  var sf = document.getElementById('empRowStatusFilter').value;
+  if (sf) params.status = sf;
+  apiGet(params, function(err, res) {
+    if (err || !res || !res.ok) { showToast(T[LANG].toastError, true); return; }
+    allRows = (res.data && res.data.rows) ? res.data.rows : (Array.isArray(res.data) ? res.data : []);
+    renderEmpRows();
+  });
+}
+
+function renderEmpRows() {
+  var t      = T[LANG];
+  var filter = document.getElementById('empRowStatusFilter').value;
+  var rows   = filter ? allRows.filter(function(r){return r.status===filter;}) : allRows.slice();
+  // Sort newest first by year/month/day descending
+  rows.sort(function(a, b) {
+    var da = [String(a.year||''),String(a.month||'').padStart(2,'0'),String(a.day||'').padStart(2,'0')].join('');
+    var db = [String(b.year||''),String(b.month||'').padStart(2,'0'),String(b.day||'').padStart(2,'0')].join('');
+    return db < da ? -1 : db > da ? 1 : 0;
+  });
+  var tbody  = document.getElementById('empRowsBody');
+  var editable = ['new','in_progress','returned'];
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">'+t.noRows+'</td></tr>';
+    document.getElementById('submitDaySection').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(r) {
+    var canEdit   = editable.indexOf(r.status) !== -1;
+    var dateLabel = [r.year, r.month, r.day].filter(Boolean).join('/');
+    var fileLink  = r.fileUrl
+      ? '<a href="'+esc(r.fileUrl)+'" target="_blank" rel="noopener noreferrer" style="font-size:.82rem;">'+esc(r.fileName)+'</a>'
+      : esc(r.fileName);
+    var noteCell = canEdit
+      ? '<textarea class="form-control note-input" rows="2" id="note-'+esc(r.id)+'">'+esc(r.note||'')+'</textarea>'
+      : '<span style="font-size:.8rem;">'+esc(r.note||'—')+'</span>';
+    var actCell = '';
+    if (canEdit) {
+      var markBtn = r.finished
+        ? '<button type="button" class="btn btn-sm btn-action btn-outline-secondary" onclick="setFinished(\''+esc(r.id)+'\',false)">✓ '+t.btnMarkDone+'</button>'
+        : '<button type="button" class="btn btn-sm btn-action" style="background:var(--brand);color:#fff;" onclick="setFinished(\''+esc(r.id)+'\',true)">'+t.btnMarkDone+'</button>';
+      actCell = '<div class="d-flex flex-column gap-1">'+markBtn+'<button type="button" class="btn btn-sm btn-action btn-outline-secondary" style="font-size:.72rem;" onclick="saveNote(\''+esc(r.id)+'\')">' +t.btnSaveNote+'</button></div>';
+    }
+    return [
+      '<tr>',
+        '<td>'+fileLink+'</td>',
+        '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
+        '<td>'+badge(r.status)+'</td>',
+        '<td class="text-center">',
+          r.finished ? '<span style="color:#0f5132;font-size:1.1rem;">✓</span>' : '<span style="color:#aaa;">—</span>',
+        '</td>',
+        '<td>'+noteCell+'</td>',
+        '<td>'+actCell+'</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+
+  buildDayPicker(rows);
+}
+
+function buildDayPicker(rows) {
+  var editable = ['new','in_progress','returned'];
+  var dayMap   = {};
+  rows.forEach(function(r) {
+    if (r.finished && editable.indexOf(r.status) !== -1) {
+      var key = [r.year,r.month,r.day].filter(Boolean).join('/');
+      if (key) dayMap[key] = { year:r.year, month:r.month, day:r.day };
+    }
+  });
+  var days    = Object.keys(dayMap);
+  var section = document.getElementById('submitDaySection');
+  var picker  = document.getElementById('submitDayPicker');
+  if (!days.length) { section.style.display = 'none'; return; }
+  picker.innerHTML = days.map(function(d) {
+    return '<option value="'+esc(d)+'">'+esc(d)+'</option>';
+  }).join('');
+  section.style.display = '';
+}
+
+function setFinished(id, finished) {
+  apiPost({ action:'setFinished', id:id, finished: finished }, function(err, res) {
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
+    var row = allRows.find(function(r){return r.id===id;});
+    if (row) { row.finished=finished; if (res.data) row.status=res.data.status||row.status; }
+    showToast(T[LANG].toastSaved, false);
+    renderEmpRows();
+  });
+}
+
+function saveNote(id) {
+  var ta = document.getElementById('note-'+id);
+  if (!ta) return;
+  var note = ta.value;
+  apiPost({ action:'setNote', id:id, note:note }, function(err, res) {
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError, true); return; }
+    var row = allRows.find(function(r){return r.id===id;});
+    if (row) row.note = note;
+    showToast(T[LANG].toastSaved, false);
+  });
+}
+
+function doSubmitDay() {
+  var val = document.getElementById('submitDayPicker').value;
+  if (!val || !currentClientFolderId) return;
+  var parts = val.split('/');
+  var btn   = document.getElementById('btnSubmitDay');
+  btn.disabled = true;
+  btn.textContent = '…';
+  apiPost({ action:'submitDay', clientFolderId:currentClientFolderId,
+            year:parts[0], month:parts[1], day:parts[2] }, function(err, res) {
+    btn.disabled = false;
+    btn.textContent = T[LANG].btnSubmitDay;
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
+    showToast(T[LANG].toastSubmitted, false);
+    reloadRows();
+    loadMyClients();
+  });
+}
+
+function closeDetail() {
+  document.getElementById('clientDetail').style.display = 'none';
+  currentClientFolderId = null;
+  document.querySelectorAll('.client-card').forEach(function(el){el.classList.remove('active');});
+}
+
+// ── Supervisor ────────────────────────────────────────────────
+function loadPending() {
+  document.getElementById('supClientList').innerHTML =
+    '<div class="text-center py-4"><div class="spinner-border spinner-border-sm" style="color:var(--brand)"></div></div>';
+  closeSupDetail();
+  apiGet({ action:'listPending' }, function(err, res) {
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError, true); return; }
+    pendingData = res.data || [];
+    renderSupClientList();
+  });
+}
+
+function renderSupClientList() {
+  var t    = T[LANG];
+  var list = document.getElementById('supClientList');
+  var filterSel    = document.getElementById('supEmpFilter');
+  var statusFilter = document.getElementById('supStatusFilter').value;
+
+  // Build set of unique employees from pendingData
+  var empSet = {};
+  pendingData.forEach(function(c) {
+    var key = c.empEmail || c.empName || '';
+    if (key && !empSet[key]) empSet[key] = c.empName || c.empEmail;
+  });
+
+  // Populate filter dropdown options (preserve selection)
+  var prev = filterSel.value;
+  var opts = ['<option value="">'+t.filterAllEmps+'</option>'];
+  Object.keys(empSet).forEach(function(k) {
+    opts.push('<option value="'+esc(k)+'">'+esc(empSet[k])+'</option>');
+  });
+  filterSel.innerHTML = opts.join('');
+  if (prev && empSet[prev]) filterSel.value = prev;
+
+  var f     = filterSel.value;
+  var list2 = pendingData.filter(function(c) {
+    if (f && (c.empEmail||c.empName||'') !== f) return false;
+    if (statusFilter) {
+      return (c.rows || []).some(function(r){ return r.status === statusFilter; });
+    }
+    return true;
+  });
+
+  if (!list2.length) {
+    list.innerHTML = '<p class="text-muted text-center py-4">'+t.noClients+'</p>';
+    return;
+  }
+  list.innerHTML = list2.map(function(c) {
+    var matchRows = statusFilter
+      ? (c.rows || []).filter(function(r){ return r.status === statusFilter; })
+      : (c.rows || []);
+    var count = matchRows.length;
+    var cid   = esc(c.clientFolderId);
+    return [
+      '<div class="client-card" data-cid="'+cid+'" onclick="openSupDetailById(\''+cid+'\')">',
+        '<div class="d-flex justify-content-between align-items-start">',
+          '<div>',
+            '<div style="font-weight:700;font-size:.95rem;">'+esc(c.clientName)+'</div>',
+            '<div style="font-size:.78rem;color:#6c757d;">'+esc(c.empName||'')+'</div>',
+          '</div>',
+          '<span class="count-chip" style="background:#cfe2ff;color:#084298;">'+count+' '+t.filesTotal+'</span>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }).join('');
+}
+
+function openSupDetailById(cid) {
+  var client = pendingData.find(function(x){return x.clientFolderId===cid;});
+  if (!client) return;
+  document.querySelectorAll('.client-card').forEach(function(el){el.classList.remove('active');});
+  var scc = document.querySelector('.client-card[data-cid="'+cid+'"]');
+  if (scc) scc.classList.add('active');
+  document.getElementById('supDetailClientName').textContent = client.clientName;
+  document.getElementById('supDetailEmpName').textContent    = client.empName || '';
+  document.getElementById('selectAll').checked = false;
+
+  var statusFilter = document.getElementById('supStatusFilter').value;
+  var allClientRows = client.rows || [];
+  var rows = statusFilter
+    ? allClientRows.filter(function(r){ return r.status === statusFilter; })
+    : allClientRows;
+
+  var tbody = document.getElementById('supRowsBody');
+  var hasSubmitted = rows.some(function(r){ return r.status === 'submitted'; });
+
+  tbody.innerHTML = rows.map(function(r) {
+    var isSubmitted = r.status === 'submitted';
+    var dateLabel = [r.year,r.month,r.day].filter(Boolean).join('/');
+    var fileLink  = r.fileUrl
+      ? '<a href="'+esc(r.fileUrl)+'" target="_blank" rel="noopener noreferrer" style="font-size:.82rem;">'+esc(r.fileName)+'</a>'
+      : esc(r.fileName);
+    var chkDisabled = isSubmitted ? '' : ' disabled';
+    return [
+      '<tr>',
+        '<td><input type="checkbox" class="form-check-input row-chk" style="width:1.1em;height:1.1em;"'+chkDisabled+' value="'+esc(r.id)+'"></td>',
+        '<td>'+fileLink+'</td>',
+        '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
+        '<td>'+badge(r.status)+'</td>',
+        '<td style="font-size:.8rem;max-width:200px;">'+esc(r.note||'—')+'</td>',
+        '<td class="text-center">'+esc(String(r.returnCount||0))+'</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+
+  document.getElementById('supActionBar').style.display = hasSubmitted ? '' : 'none';
+  document.getElementById('supDetail').style.display = '';
+}
+
+function closeSupDetail() {
+  document.getElementById('supDetail').style.display = 'none';
+  document.querySelectorAll('.client-card').forEach(function(el){el.classList.remove('active');});
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.row-chk:not([disabled])').forEach(function(el){ el.checked = cb.checked; });
+}
+
+function getSelectedIds() {
+  return Array.from(document.querySelectorAll('.row-chk:checked')).map(function(el){ return el.value; });
+}
+
+function doApproveAndSend() {
+  var ids = getSelectedIds();
+  if (!ids.length) { showToast(T[LANG].selectOne, true); return; }
+  var btn = document.getElementById('btnApprove');
+  btn.disabled = true;
+  apiPost({ action:'approveAndSend', ids:ids }, function(err, res) {
+    btn.disabled = false;
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
+    showToast(T[LANG].toastApproved, false);
+    loadPending();
+  });
+}
+
+function openReturnModal() {
+  var ids = getSelectedIds();
+  if (!ids.length) { showToast(T[LANG].selectOne, true); return; }
+  document.getElementById('returnNoteArea').value = '';
+  document.getElementById('returnNoteArea').classList.remove('is-invalid');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('returnModal')).show();
+}
+
+function doReturnToEmp() {
+  var ids  = getSelectedIds();
+  var note = document.getElementById('returnNoteArea').value.trim();
+  if (!note) { document.getElementById('returnNoteArea').classList.add('is-invalid'); return; }
+  document.getElementById('returnNoteArea').classList.remove('is-invalid');
+  var btn = document.getElementById('btnConfirmReturn');
+  btn.disabled = true;
+  apiPost({ action:'returnToEmp', ids:ids, returnNote:note }, function(err, res) {
+    btn.disabled = false;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('returnModal')).hide();
+    if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
+    showToast(T[LANG].toastReturned, false);
+    loadPending();
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────
+function initGSI() {
+  if (typeof google === 'undefined' || !google.accounts) return;
+  google.accounts.id.initialize({
+    client_id:   GSI_CLIENT_ID,
+    callback:    onGoogleSignIn,
+    auto_select: false
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('googleSignInBtn'),
+    { theme:'outline', size:'large', text:'signin_with', locale:'ar', width:280 }
+  );
+}
+window.addEventListener('load', function() {
+  if (typeof google !== 'undefined' && google.accounts) initGSI();
+});
+</script>
+</body>
+</html>

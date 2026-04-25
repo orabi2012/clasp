@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // 05_Emails.gs
 // Email notification functions
 // ============================================================
@@ -120,10 +120,6 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
       ])}
 
       <p style="font-size:13px;color:#718096;margin:0 0 14px 0;font-weight:600;">المجلدات المخصصة لك:</p>
-
-      ${folderCard_('#f59e0b', '#fffdf5', '#f59e0b', 'مجلد الرفع', 'uploads',
-        'يرفع فيه العميل مستنداته. يمكنك مراجعة وتعديل الملفات داخله.',
-        uploadsUrl, 'افتح مجلد الرفع')}
 
       ${folderCard_('#8b5cf6', '#faf5ff', '#8b5cf6', 'مجلد العمل', 'stage',
         'مجلد العمل الخاص بك، منظم بالسنوات والأشهر والأيام.',
@@ -320,16 +316,19 @@ function sendDateReminder_(email, clientName, type, date, daysLeft, folderUrl, l
 }
 
 // -- sendUploadNotification -----------------------------------
+// Notifies the employee that new files were moved into stage/<day>.
+// dayFolderUrl: direct link to the day folder in stage/
+// dateStr: formatted date string e.g. "22/04/2026"
 
-function sendUploadNotification(employeeEmail, employeeName, clientName, uploadsUrl, files) {
+function sendUploadNotification(employeeEmail, employeeName, clientName, dayFolderUrl, files, dateStr, trackerUrl) {
   const count   = files.length;
-  const subject = 'ملفات جديدة من العميل: ' + clientName + ' (' + count + ')';
+  const subject = 'ملفات جديدة بتاريخ ' + dateStr + ' — ' + clientName + ' (' + count + ')';
 
   let fileRows = '';
   for (let i = 0; i < files.length; i++) {
     const f    = files[i];
-    const size = f.size < 1024       ? f.size + ' B'
-               : f.size < 1048576    ? Math.round(f.size / 1024) + ' KB'
+    const size = f.size < 1024    ? f.size + ' B'
+               : f.size < 1048576 ? Math.round(f.size / 1024) + ' KB'
                : (f.size / 1048576).toFixed(1) + ' MB';
     const bg   = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
     fileRows += `
@@ -342,29 +341,281 @@ function sendUploadNotification(employeeEmail, employeeName, clientName, uploads
   }
 
   const content = `
-    ${emailHeader_('#0d6b6e', 'ملفات جديدة من العميل', clientName + ' — ' + count + ' ملف(ات) جديدة')}
+    ${emailHeader_('#0d6b6e', 'ملفات جديدة بتاريخ ' + dateStr, clientName + ' — ' + count + ' ملف(ات) تم نقلها إلى مجلد العمل')}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
 
       <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.8;">
-        مرحباً <strong>${employeeName}</strong>، رفع العميل <strong>${clientName}</strong> الملفات التالية في مجلد الرفع:
+        مرحباً <strong>${employeeName}</strong>، رفع العميل <strong>${clientName}</strong> الملفات التالية وتم نقلها تلقائياً إلى مجلد العمل:
       </p>
 
       <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <table style="width:100%;border-collapse:collapse;">
           <tr style="background:#f5f7fa;">
-            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">اسم الملف</th>
-            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#718096;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">الحجم</th>
+            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">اسم الملف</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#718096;font-weight:700;">الحجم</th>
           </tr>
           ${fileRows}
         </table>
       </div>
 
-      <a href="${uploadsUrl}" style="display:inline-block;background:#f59e0b;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
-        افتح مجلد الرفع ←
+      <a href="${dayFolderUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;margin-left:10px;">
+        افتح مجلد اليوم ←
       </a>
+      ${trackerUrl ? `<a href="${trackerUrl}" style="display:inline-block;background:#1a73e8;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+        افتح جدول المتابعة ←
+      </a>` : ''}
 
     </div>
     ${emailFooter_('ar')}`;
 
   GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
+}
+
+// -- sendFilesReceivedEmail_ ----------------------------------
+// Branded email to the CLIENT confirming files were received
+// and are under processing. No Drive links exposed.
+
+function sendFilesReceivedEmail_(clientEmail, clientName, files, dateStr, lang) {
+  if (!clientEmail) return;
+  const isEn    = lang === 'en';
+  const subject = isEn
+    ? 'Files Received — ' + dateStr + ' | ' + COMPANY_NAME
+    : 'استلام ملفاتك بتاريخ ' + dateStr;
+
+  let fileRows = '';
+  for (let i = 0; i < files.length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    fileRows += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;color:#2d3748;word-break:break-word;">${files[i].name}</td>
+      </tr>`;
+  }
+
+  const content = `
+    ${emailHeader_('#0d6b6e',
+      isEn ? 'Files Received' : 'تم استلام ملفاتك',
+      isEn ? 'Your files dated ' + dateStr + ' are under processing'
+           : 'ملفاتك بتاريخ ' + dateStr + ' قيد المعالجة')}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.9;">
+        ${ isEn
+          ? 'Dear <strong>' + clientName + '</strong>, we have received the following files and our team is currently processing them:'
+          : 'عزيزنا <strong>' + clientName + '</strong>، استلمنا الملفات التالية وهي حالياً قيد المعالجة من قبل فريقنا:'}
+      </p>
+
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">
+            ${isEn ? 'Received Files (' + files.length + ')' : 'الملفات المستلمة (' + files.length + ')'}
+          </p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${fileRows}
+        </table>
+      </div>
+
+      <p style="font-size:13px;color:#718096;margin:0;line-height:1.8;">
+        ${isEn
+          ? 'We will notify you once the work is complete.'
+          : 'سيتم إشعارك فور الانتهاء من معالجتها.'}
+      </p>
+
+    </div>
+    ${emailFooter_(lang)}`;
+
+  GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
+}
+
+// -- sendInvoiceDoneEmail_ ------------------------------------
+// Sent by the employee via the tracker menu when a day's work is complete.
+// filesList: [{ name, url }]
+// notesList: [{ name, note, url }]  (only rows with non-empty notes)
+
+function sendInvoiceDoneEmail_(clientEmail, clientName, dateStr, filesList, notesList, lang) {
+  if (!clientEmail) return;
+  const isEn    = lang === 'en';
+  const subject = isEn
+    ? 'Invoice Processing Complete — ' + dateStr + ' | ' + COMPANY_NAME
+    : 'اكتمال معالجة فواتير يوم ' + dateStr;
+
+  // File list rows
+  let fileRows = '';
+  for (let i = 0; i < filesList.length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    fileRows += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;">
+          <a href="${filesList[i].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${filesList[i].name}</a>
+        </td>
+      </tr>`;
+  }
+
+  // Notes section (optional)
+  let notesHtml = '';
+  if (notesList && notesList.length > 0) {
+    let notesRows = '';
+    for (let j = 0; j < notesList.length; j++) {
+      const bg = j % 2 === 0 ? '#ffffff' : '#f9fbfc';
+      notesRows += `
+        <tr style="background:${bg};">
+          <td style="padding:10px 12px;font-size:13px;width:40%;">
+            <a href="${notesList[j].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${notesList[j].name}</a>
+          </td>
+          <td style="padding:10px 12px;font-size:13px;color:#4a5568;">${notesList[j].note}</td>
+        </tr>`;
+    }
+    notesHtml = `
+      <p style="font-size:14px;font-weight:700;color:#2d3748;margin:20px 0 10px 0;">
+        ${isEn ? 'Notes' : 'ملاحظات'}
+      </p>
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr style="background:#f5f7fa;">
+            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">${isEn ? 'File' : 'الملف'}</th>
+            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">${isEn ? 'Note' : 'الملاحظة'}</th>
+          </tr>
+          ${notesRows}
+        </table>
+      </div>`;
+  }
+
+  const content = `
+    ${emailHeader_('#0d6b6e',
+      isEn ? 'Invoice Processing Complete' : 'تم الانتهاء من معالجة فواتيرك',
+      isEn ? 'Invoices for ' + dateStr + ' have been processed'
+           : 'تم الانتهاء من فواتير يوم ' + dateStr)}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.9;">
+        ${isEn
+          ? 'Dear <strong>' + clientName + '</strong>, the following invoices have been processed:'
+          : 'عزيزنا <strong>' + clientName + '</strong>، تم الانتهاء من معالجة الفواتير التالية:'}
+      </p>
+
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">
+            ${isEn ? 'Processed Files (' + filesList.length + ')' : 'الملفات المعالجة (' + filesList.length + ')'}
+          </p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${fileRows}
+        </table>
+      </div>
+
+      ${notesHtml}
+
+    </div>
+    ${emailFooter_(lang)}`;
+
+  GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
+}
+
+// -- sendReturnToEmpEmail_ ------------------------------------
+// Sent by the supervisor via the portal when returning files to an employee.
+// files: [{ name, url }]
+
+function sendReturnToEmpEmail_(empEmail, empName, clientName, files, supervisorName, returnNote) {
+  if (!empEmail) return;
+  const count   = files ? files.length : 0;
+  const subject = 'إعادة ملفات للمراجعة — ' + clientName + ' (' + count + ')';
+
+  let fileRows = '';
+  for (let i = 0; i < (files || []).length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    fileRows += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;">
+          <a href="${files[i].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${files[i].name}</a>
+        </td>
+      </tr>`;
+  }
+
+  const noteHtml = returnNote
+    ? `<div style="background:#fff3cd;border-right:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin-top:16px;">
+        <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#92400e;">ملاحظة المشرف:</p>
+        <p style="margin:0;font-size:13px;color:#4a5568;line-height:1.8;">${returnNote}</p>
+       </div>`
+    : '';
+
+  const content = `
+    ${emailHeader_('#f59e0b', 'إعادة ملفات للمراجعة', 'العميل: ' + clientName + ' · المشرف: ' + (supervisorName || COMPANY_NAME))}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.8;">
+        مرحباً <strong>${empName}</strong>، أعاد المشرف الملفات التالية للمراجعة وتطلب إعادة الاعتماد:
+      </p>
+
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#f59e0b;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">الملفات المُعادة (${count})</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${fileRows}
+        </table>
+      </div>
+
+      ${noteHtml}
+
+      <p style="font-size:13px;color:#718096;margin:16px 0 0;line-height:1.8;">
+        يرجى مراجعة الملفات، التأكد من اكتمالها ثم إعادة الاعتماد من البوابة.
+      </p>
+
+    </div>
+    ${emailFooter_('ar')}`;
+
+  GmailApp.sendEmail(empEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
+}
+
+// -- sendSubmittedToSupervisorEmail_ --------------------------
+// Direct notification to the supervisor when an employee submits a day
+// for review. Replaces the legacy batched digest.
+// files: [{ name, url }]
+
+function sendSubmittedToSupervisorEmail_(supEmail, supName, empName, clientName, files, portalUrl) {
+  if (!supEmail) return;
+  const count   = files ? files.length : 0;
+  const subject = 'ملفات بانتظار المراجعة — ' + clientName + ' (' + count + ')';
+
+  let fileRows = '';
+  for (let i = 0; i < (files || []).length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    fileRows += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;">
+          <a href="${files[i].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${files[i].name}</a>
+        </td>
+      </tr>`;
+  }
+
+  const portalBtn = portalUrl
+    ? `<a href="${portalUrl}" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;margin-top:8px;">
+        افتح لوحة المتابعة ←
+       </a>`
+    : '';
+
+  const content = `
+    ${emailHeader_('#0d6b6e', 'ملفات بانتظار المراجعة', 'العميل: ' + clientName + ' · الموظف: ' + empName)}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.8;">
+        مرحباً <strong>${supName || ''}</strong>، قام الموظف <strong>${empName}</strong> باعتماد الملفات التالية للعميل <strong>${clientName}</strong> وهي بانتظار مراجعتك:
+      </p>
+
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">الملفات المعتمدة (${count})</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${fileRows}
+        </table>
+      </div>
+
+      ${portalBtn}
+
+    </div>
+    ${emailFooter_('ar')}`;
+
+  GmailApp.sendEmail(supEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
 }

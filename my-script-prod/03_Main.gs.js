@@ -5,6 +5,13 @@
 
 function onEmployeeAssigned(e) {
   const sheet = e.source.getActiveSheet();
+
+  // ── Handle supervisor column change on employees sheet ────────────
+  if (sheet.getName() === EMPLOYEES_SHEET_NAME) {
+    onEmployeeSupervisorChanged_(e, sheet);
+    return;
+  }
+
   if (sheet.getName() !== CUSTOMERS_SHEET_NAME) return;
 
   const editedCol = e.range.getColumn();
@@ -35,6 +42,16 @@ function onEmployeeAssigned(e) {
 
       sheet.getRange(editedRow, COL_PREV_EMPLOYEE).setValue('');
       SpreadsheetApp.flush();
+
+      // Clear employee/supervisor on open workflow rows so the previous employee
+      // no longer sees this client's rows in their dashboard
+      try {
+        if (existingID) {
+          wfPatchOpenRowsByEmp_(existingID, '', '', '', '');
+        }
+      } catch (err) {
+        Logger.log('Warning: wfPatchOpenRowsByEmp_ on unassign: ' + err.message);
+      }
 
       Logger.log('Unassigned ' + prevEmployee + ' from client: ' + clientName);
     }
@@ -134,7 +151,17 @@ function onEmployeeAssigned(e) {
   sheet.getRange(editedRow, COL_PREV_EMPLOYEE).setValue(newEmployee);
   SpreadsheetApp.flush();
 
-  // -- 10. Build stage year/month/day folders (deferred — slow operation) --
+  // -- 10. Patch open workflow rows with new employee + supervisor --
+  try {
+    const newSupData  = getSupervisorForEmployee_(newEmployee, e.source);
+    const newSupName  = newSupData ? newSupData.name  : '';
+    const newSupEmail = newSupData ? newSupData.email : '';
+    wfPatchOpenRowsByEmp_(folderId, newEmployee, newEmployeeEmail, newSupName, newSupEmail);
+  } catch (err) {
+    Logger.log('Warning: wfPatchOpenRowsByEmp_: ' + err.message);
+  }
+
+  // -- 11. Build stage year/month/day folders (deferred — slow operation) --
   try {
     buildClientStageFolders_(folderId);
   } catch (err) {
@@ -192,4 +219,73 @@ function onDateChanged(e) {
   } catch (err) {
     Logger.log('Warning: date change notification: ' + err.message);
   }
+}
+
+// ── Employee ↔ Supervisor assignment ───────────────────────────────────
+
+function onEmployeeSupervisorChanged_(e, sheet) {
+  const editedCol = e.range.getColumn();
+  const editedRow = e.range.getRow();
+  if (editedRow <= 1 || editedCol !== COL_EMP_SUPERVISOR) return;
+
+  // Ensure this row has the supervisor dropdown applied (handles newly typed rows)
+  try {
+    const supSheet = e.source.getSheetByName(SUPERVISORS_SHEET_NAME);
+    if (supSheet && supSheet.getLastRow() > 1) {
+      const existing = sheet.getRange(editedRow, COL_EMP_SUPERVISOR).getDataValidation();
+      if (!existing) {
+        const supRule = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(supSheet.getRange(2, COL_SUP_NAME, supSheet.getLastRow() - 1, 1), true)
+          .setAllowInvalid(false)
+          .build();
+        sheet.getRange(editedRow, COL_EMP_SUPERVISOR).setDataValidation(supRule);
+      }
+    }
+  } catch (err) { /* non-fatal */ }
+
+  const rowData        = sheet.getRange(editedRow, 1, 1, COL_EMP_PREV_SUPERVISOR).getValues()[0];
+  const employeeName   = rowData[COL_EMP_NAME          - 1];
+  const employeeEmail  = rowData[COL_EMP_EMAIL         - 1];
+  const newSupervisor  = rowData[COL_EMP_SUPERVISOR    - 1];
+  const prevSupervisor = rowData[COL_EMP_PREV_SUPERVISOR - 1];
+
+  if (!employeeName || !employeeEmail) return;
+
+  // Locate the employee's own Drive folder (must already exist)
+  const empFolderIter = DriveApp.getFolderById(EMPLOYEES_FOLDER_ID)
+    .getFoldersByName(employeeName.replace(/\s+/g, '_'));
+  if (!empFolderIter.hasNext()) {
+    Logger.log('onEmployeeSupervisorChanged_: employee folder not found for ' + employeeName);
+    return;
+  }
+  const employeeFolderId = empFolderIter.next().getId();
+
+  // Remove shortcut from previous supervisor
+  if (prevSupervisor && prevSupervisor !== newSupervisor) {
+    try { removeEmployeeShortcutFromSupervisor_(prevSupervisor, employeeName); }
+    catch (err) { Logger.log('Warning: remove emp shortcut from prev supervisor: ' + err.message); }
+  }
+
+  // Add shortcut to new supervisor folder
+  if (newSupervisor) {
+    const supData  = getSupervisorByName_(newSupervisor, e.source);
+    const supEmail = supData ? supData.email : null;
+    try { addEmployeeShortcutToSupervisor_(newSupervisor, supEmail, employeeFolderId, employeeName, e.source); }
+    catch (err) { Logger.log('Warning: add emp shortcut to supervisor: ' + err.message); }
+  }
+
+  // Save current supervisor as previous
+  sheet.getRange(editedRow, COL_EMP_PREV_SUPERVISOR).setValue(newSupervisor || '');
+  SpreadsheetApp.flush();
+
+  // Patch open workflow rows with the new supervisor
+  try {
+    const newSupData  = newSupervisor ? getSupervisorByName_(newSupervisor, e.source) : null;
+    const newSupEmail = newSupData ? newSupData.email : '';
+    wfPatchOpenRowsBySup_(employeeEmail, newSupervisor || '', newSupEmail);
+  } catch (err) {
+    Logger.log('Warning: wfPatchOpenRowsBySup_: ' + err.message);
+  }
+
+  Logger.log('Supervisor for ' + employeeName + ' set to: ' + (newSupervisor || '(none)'));
 }
