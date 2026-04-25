@@ -5,7 +5,8 @@
 // ============================================================
 
 function checkUploadsForNewFiles() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const ssId  = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  const ss    = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
   if (!sheet) return;
 

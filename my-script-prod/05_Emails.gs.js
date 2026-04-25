@@ -114,24 +114,53 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
   const clientPhone = clientRow[3] || 'غير متوفر';
   const taxNumber   = clientRow[4] || 'غير متوفر';
   const uniqueNum   = clientRow[5] || 'غير متوفر';
+  const portalUrl   = getPortalUrl_();
+
+  const rows = [
+    ['الاسم',          clientName],
+    ['الايميل',        clientEmail || 'غير متوفر'],
+    ['الهاتف',         clientPhone],
+    ['الرقم الضريبي',  taxNumber],
+    ['الرقم المميز',   uniqueNum]
+  ];
+  let infoRows = '';
+  for (let i = 0; i < rows.length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    infoRows += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;color:#a0aec0;width:38%;vertical-align:top;white-space:nowrap;">${rows[i][0]}</td>
+        <td style="padding:11px 14px;font-size:13px;color:#2d3748;font-weight:600;word-break:break-word;">${rows[i][1]}</td>
+      </tr>`;
+  }
 
   const content = `
-    ${emailHeader_('#0d6b6e', 'مهمة جديدة بانتظارك', 'مرحباً ' + employeeName + '، تم تعيينك على العميل ' + clientName)}
+    ${emailHeader_('#0d6b6e',
+      'مهمة جديدة بانتظارك',
+      'تم تعيينك على العميل ' + clientName)}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
 
-      ${infoCard_('بيانات العميل', '#1a73e8', [
-        ['الاسم',           clientName],
-        ['الايميل',         clientEmail  || 'غير متوفر'],
-        ['الهاتف',          clientPhone],
-        ['الرقم الضريبي',  taxNumber],
-        ['الرقم المميز',   uniqueNum]
-      ])}
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.9;">
+        مرحباً <strong>${employeeName}</strong>، تم إسناد عميل جديد إليك. تجد بيانات العميل أدناه:
+      </p>
 
-      ${getPortalUrl_() ? `<div style="text-align:center;margin-top:8px;">
-        <a href="${getPortalUrl_()}/workflow.html" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">بيانات العميل</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRows}
+        </table>
+      </div>
+
+      ${portalUrl ? `<div style="text-align:center;margin:6px 0 10px;">
+        <a href="${portalUrl}/workflow.html" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
           افتح لوحة المتابعة ←
         </a>
       </div>` : ''}
+
+      <p style="font-size:13px;color:#718096;margin:8px 0 0;line-height:1.8;">
+        يرجى المتابعة مع العميل في أقرب وقت ممكن.
+      </p>
 
     </div>
     ${emailFooter_('ar')}`;
@@ -145,50 +174,107 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
   const isEn    = lang === 'en';
   const na      = isEn ? 'N/A' : 'غير متوفر';
   const subject = isEn
-    ? 'Your Files Are Ready - ' + clientName
+    ? 'Your Files Are Ready - ' + clientName + ' | ' + COMPANY_NAME
     : 'تم تجهيز ملفاتك - ' + clientName;
   const empName  = employeeData ? employeeData.name         : na;
   const empEmail = employeeData ? employeeData.email        : na;
   const empPhone = employeeData ? (employeeData.phone || na) : na;
 
+  const folders = [
+    {
+      url:   uploadsUrl,
+      title: isEn ? 'Uploads Folder' : 'مجلد رفع الملفات',
+      desc:  isEn ? 'Upload your documents and required files here.'
+                  : 'لرفع مستنداتك وملفاتك المطلوبة.',
+      btn:   isEn ? 'Open Uploads' : 'افتح مجلد الرفع'
+    },
+    {
+      url:   resultsUrl,
+      title: isEn ? 'Results Folder' : 'مجلد النتائج والتقارير',
+      desc:  isEn ? 'Reports and results added by the team will appear here.'
+                  : 'ستجد هنا النتائج والتقارير التي يضعها الفريق.',
+      btn:   isEn ? 'Open Results' : 'افتح مجلد النتائج'
+    }
+  ];
+  if (guidelinesUrl) {
+    folders.push({
+      url:   guidelinesUrl,
+      title: isEn ? 'Guidelines' : 'ارشادات هامة',
+      desc:  isEn ? 'Important guidelines to help you use our services effectively.'
+                  : 'ارشادات وتعليمات مهمة تساعدك على استخدام خدماتنا بشكل صحيح.',
+      btn:   isEn ? 'Open Guidelines' : 'افتح الارشادات'
+    });
+  }
+
+  let folderRows = '';
+  for (let i = 0; i < folders.length; i++) {
+    const f  = folders[i];
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    folderRows += `
+      <tr style="background:${bg};">
+        <td style="padding:14px;font-size:13px;">
+          <p style="margin:0 0 4px 0;font-size:14px;color:#2d3748;font-weight:700;">${f.title}</p>
+          <p style="margin:0 0 10px 0;font-size:12px;color:#718096;line-height:1.7;">${f.desc}</p>
+          <a href="${f.url}" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700;">${f.btn} ←</a>
+        </td>
+      </tr>`;
+  }
+
+  const supRows = [
+    [isEn ? 'Name'  : 'الاسم',   empName],
+    [isEn ? 'Email' : 'الايميل', empEmail],
+    [isEn ? 'Phone' : 'الهاتف',  empPhone]
+  ];
+  let supRowsHtml = '';
+  for (let i = 0; i < supRows.length; i++) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    supRowsHtml += `
+      <tr style="background:${bg};">
+        <td style="padding:11px 14px;font-size:13px;color:#a0aec0;width:38%;vertical-align:top;white-space:nowrap;">${supRows[i][0]}</td>
+        <td style="padding:11px 14px;font-size:13px;color:#2d3748;font-weight:600;word-break:break-word;">${supRows[i][1]}</td>
+      </tr>`;
+  }
+
   const content = `
-    ${emailHeader_('#1a73e8',
+    ${emailHeader_('#0d6b6e',
       isEn ? 'Your Files Are Ready' : 'تم تجهيز ملفاتك بنجاح',
-      isEn ? 'Dear ' + clientName + ', you can now access your personal folders'
-           : 'عزيزي ' + clientName + '، يمكنك الآن الوصول إلى مجلديك الخاصين')}
+      isEn ? 'You can now access your personal folders'
+           : 'يمكنك الآن الوصول إلى مجلداتك الخاصة')}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
 
-      ${folderCard_('#f59e0b', '#fffdf5', '#f59e0b',
-        isEn ? 'Uploads' : 'مجلد رفع الملفات',
-        isEn ? 'Uploads Folder' : 'uploads',
-        isEn ? 'This folder is for uploading your documents and required files.'
-             : 'هذا المجلد مخصص لرفع مستنداتك وملفاتك المطلوبة.',
-        uploadsUrl,
-        isEn ? 'Open Uploads Folder' : 'افتح مجلد الرفع')}
+      <p style="font-size:14px;color:#4a5568;margin:0 0 16px 0;line-height:1.9;">
+        ${ isEn
+          ? 'Dear <strong>' + clientName + '</strong>, your personal folders have been prepared and are ready for use:'
+          : 'عزيزنا <strong>' + clientName + '</strong>، تم تجهيز مجلداتك الخاصة وأصبحت جاهزة للاستخدام:'}
+      </p>
 
-      ${folderCard_('#22c55e', '#f6fef9', '#22c55e',
-        isEn ? 'Results' : 'مجلد النتائج والتقارير',
-        isEn ? 'Results Folder' : 'results',
-        isEn ? 'Here you will find reports and results added by your assigned employee.'
-             : 'ستجد هنا النتائج والتقارير التي يضعها الموظف المسؤول عنك.',
-        resultsUrl,
-        isEn ? 'Open Results Folder' : 'افتح مجلد النتائج')}
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">
+            ${isEn ? 'Your Folders (' + folders.length + ')' : 'مجلداتك (' + folders.length + ')'}
+          </p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${folderRows}
+        </table>
+      </div>
 
-      ${guidelinesUrl ? folderCard_('#6366f1', '#f5f3ff', '#6366f1',
-        isEn ? 'Important Guidelines' : 'ارشادات هامة',
-        isEn ? 'Guidelines Folder' : FOLDER_GUIDELINES,
-        isEn ? 'Important guidelines and instructions to help you use our services effectively.'
-             : 'ارشادات وتعليمات مهمة تساعدك على استخدام خدماتنا بشكل صحيح.',
-        guidelinesUrl,
-        isEn ? 'Open Guidelines' : 'افتح الارشادات') : ''}
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">
+            ${isEn ? 'Your Assigned Supervisor' : 'المشرف المسؤول عنك'}
+          </p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${supRowsHtml}
+        </table>
+      </div>
 
-      ${infoCard_(
-        isEn ? 'Your Assigned Supervisor' : 'المشرف المسؤول عنك',
-        '#0d6b6e', [
-          [isEn ? 'Name'  : 'الاسم',   empName],
-          [isEn ? 'Email' : 'الايميل', empEmail],
-          [isEn ? 'Phone' : 'الهاتف',  empPhone]
-        ])}
+      <p style="font-size:13px;color:#718096;margin:0;line-height:1.8;">
+        ${isEn
+          ? 'Feel free to contact your assigned supervisor for any questions.'
+          : 'لا تتردد في التواصل مع المشرف المسؤول عنك لأي استفسار.'}
+      </p>
 
     </div>
     ${emailFooter_(lang)}`;
@@ -398,12 +484,11 @@ function sendUploadNotification(employeeEmail, employeeName, clientName, dayFold
         </table>
       </div>
 
-      <a href="${dayFolderUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;margin-left:10px;">
-        افتح مجلد اليوم ←
-      </a>
-      ${trackerUrl ? `<a href="${trackerUrl}" style="display:inline-block;background:#1a73e8;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
-        افتح جدول المتابعة ←
-      </a>` : ''}
+      ${trackerUrl ? `<div style="text-align:center;margin:6px 0 10px;">
+        <a href="${trackerUrl}/workflow.html" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+          افتح لوحة المتابعة ←
+        </a>
+      </div>` : ''}
 
     </div>
     ${emailFooter_('ar')}`;

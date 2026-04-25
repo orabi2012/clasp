@@ -183,6 +183,7 @@ function doPost(e) {
       case 'submitDay':      return handleSubmitDay_(body, roleInfo);
       case 'approveAndSend': return handleApproveAndSend_(body, roleInfo);
       case 'returnToEmp':    return handleReturnToEmp_(body, roleInfo);
+      case 'checkUploads':   return handleCheckUploads_(roleInfo);
       default:
         return err_('unknown action: ' + body.action);
     }
@@ -234,13 +235,14 @@ function submitClient(data) {
     lang
   ]);
   var newRow   = sheet.getLastRow();
+  sheet.getRange(newRow, COL_TAX_TYPE).setValue(data.taxType || '');
   var langCell = sheet.getRange(newRow, COL_LANG);
   langCell
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
     .setFontWeight('bold').setHorizontalAlignment('center');
   var bg = newRow % 2 === 0 ? '#e8f0fe' : '#ffffff';
-  sheet.getRange(newRow, 1, 1, 15).setBackground(bg);
+  sheet.getRange(newRow, 1, 1, 16).setBackground(bg);
   langCell
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
@@ -282,28 +284,60 @@ function handleListMyClients_(roleInfo) {
     if (clientMap[key].counts[r.status] !== undefined) clientMap[key].counts[r.status]++;
   });
 
-  // For employees: also include clients assigned in the customers sheet
-  // that have no workflow rows yet (no files uploaded)
-  if (roleInfo.role === 'employee') {
+  // Also include clients from the customers sheet that have no workflow rows yet
+  if (roleInfo.role === 'employee' || roleInfo.role === 'supervisor') {
     var ssId2 = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
     var ss2   = ssId2 ? SpreadsheetApp.openById(ssId2) : SpreadsheetApp.getActiveSpreadsheet();
     var custSheet = ss2.getSheetByName(CUSTOMERS_SHEET_NAME);
     if (custSheet && custSheet.getLastRow() > 1) {
-      var custData  = custSheet.getDataRange().getValues();
-      var empNameLc = (roleInfo.name || '').toLowerCase().trim();
+      var custData = custSheet.getDataRange().getValues();
+
+      // For supervisors: build a set of employee names whose supervisor is this user
+      var empNamesForSup = null;
+      if (roleInfo.role === 'supervisor') {
+        empNamesForSup = {};
+        var supNameLc = (roleInfo.name || '').toLowerCase().trim();
+        var empSheet2 = ss2.getSheetByName(EMPLOYEES_SHEET_NAME);
+        if (empSheet2 && empSheet2.getLastRow() > 1) {
+          var empData2 = empSheet2.getDataRange().getValues();
+          for (var ei = 1; ei < empData2.length; ei++) {
+            var thisSupName = String(empData2[ei][COL_EMP_SUPERVISOR - 1] || '').toLowerCase().trim();
+            if (thisSupName === supNameLc) {
+              empNamesForSup[String(empData2[ei][COL_EMP_NAME - 1] || '').toLowerCase().trim()] = {
+                name:  empData2[ei][COL_EMP_NAME  - 1] || '',
+                email: empData2[ei][COL_EMP_EMAIL - 1] || ''
+              };
+            }
+          }
+        }
+      }
+
+      var empNameLc = (roleInfo.role === 'employee') ? (roleInfo.name || '').toLowerCase().trim() : null;
+
       for (var ci = 1; ci < custData.length; ci++) {
-        var assignedEmp = String(custData[ci][COL_PREV_EMPLOYEE - 1] || custData[ci][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
-        if (!assignedEmp || assignedEmp !== empNameLc) continue;
+        var assignedEmpRaw = String(custData[ci][COL_PREV_EMPLOYEE - 1] || custData[ci][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
+        if (!assignedEmpRaw) continue;
+
+        var matchedEmpInfo = null;
+        if (roleInfo.role === 'employee' && assignedEmpRaw === empNameLc) {
+          matchedEmpInfo = { name: roleInfo.name, email: roleInfo.email };
+        } else if (roleInfo.role === 'supervisor' && empNamesForSup && empNamesForSup[assignedEmpRaw]) {
+          matchedEmpInfo = empNamesForSup[assignedEmpRaw];
+        }
+        if (!matchedEmpInfo) continue;
+
         var cFolderId = String(custData[ci][COL_FOLDER_ID - 1] || '').trim();
-        if (!cFolderId) continue;
-        if (!clientMap[cFolderId]) {
-          clientMap[cFolderId] = {
+        // Use folder ID as key when available; fall back to email so clients
+        // with no folder yet (trigger not run) still appear in the portal
+        var mapKey = cFolderId || ('__nofolder__' + String(custData[ci][COL_EMAIL - 1] || ci).toLowerCase());
+        if (!clientMap[mapKey]) {
+          clientMap[mapKey] = {
             clientFolderId: cFolderId,
             clientName:     custData[ci][COL_NAME  - 1] || '',
             clientEmail:    custData[ci][COL_EMAIL - 1] || '',
-            empName:        roleInfo.name,
-            empEmail:       roleInfo.email,
-            supName:        '',
+            empName:        matchedEmpInfo.name,
+            empEmail:       matchedEmpInfo.email,
+            supName:        roleInfo.role === 'supervisor' ? roleInfo.name : '',
             counts: { total: 0, new: 0, in_progress: 0, submitted: 0, approved_sent: 0, returned: 0 }
           };
         }
@@ -360,7 +394,65 @@ function handleListPending_(roleInfo) {
     clientMap[key].rows.push(r);
   });
 
+  // Also include customers assigned to this supervisor's employees that
+  // have no workflow rows yet (no files uploaded). This way every employee
+  // and every assigned client is visible even before any uploads.
+  var ssId2 = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  var ss2   = ssId2 ? SpreadsheetApp.openById(ssId2) : SpreadsheetApp.getActiveSpreadsheet();
+  var custSheet = ss2.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (custSheet && custSheet.getLastRow() > 1) {
+    var custData  = custSheet.getDataRange().getValues();
+    var supNameLc = (roleInfo.name || '').toLowerCase().trim();
+
+    // Build map: employee_name_lc -> {name, email} for employees under this supervisor
+    var empNamesForSup = {};
+    var empSheet2 = ss2.getSheetByName(EMPLOYEES_SHEET_NAME);
+    if (empSheet2 && empSheet2.getLastRow() > 1) {
+      var empData2 = empSheet2.getDataRange().getValues();
+      for (var ei = 1; ei < empData2.length; ei++) {
+        var thisSupName = String(empData2[ei][COL_EMP_SUPERVISOR - 1] || '').toLowerCase().trim();
+        if (thisSupName === supNameLc) {
+          empNamesForSup[String(empData2[ei][COL_EMP_NAME - 1] || '').toLowerCase().trim()] = {
+            name:  empData2[ei][COL_EMP_NAME  - 1] || '',
+            email: empData2[ei][COL_EMP_EMAIL - 1] || ''
+          };
+        }
+      }
+    }
+
+    for (var ci = 1; ci < custData.length; ci++) {
+      var assignedEmpRaw = String(custData[ci][COL_PREV_EMPLOYEE - 1] || custData[ci][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
+      if (!assignedEmpRaw || !empNamesForSup[assignedEmpRaw]) continue;
+      var matchedEmpInfo = empNamesForSup[assignedEmpRaw];
+
+      var cFolderId = String(custData[ci][COL_FOLDER_ID - 1] || '').trim();
+      var mapKey = cFolderId || ('__nofolder__' + String(custData[ci][COL_EMAIL - 1] || ci).toLowerCase());
+      if (!clientMap[mapKey]) {
+        clientMap[mapKey] = {
+          clientFolderId: cFolderId,
+          clientName:     custData[ci][COL_NAME  - 1] || '',
+          clientEmail:    custData[ci][COL_EMAIL - 1] || '',
+          clientLang:     custData[ci][COL_LANG  - 1] || 'ar',
+          empName:        matchedEmpInfo.name,
+          empEmail:       matchedEmpInfo.email,
+          rows: []
+        };
+      }
+    }
+  }
+
   return ok_(Object.values(clientMap));
+}
+
+function handleCheckUploads_(roleInfo) {
+  if (roleInfo.role !== 'supervisor') return err_('supervisor only', 403);
+  try {
+    checkUploadsForNewFiles();
+    return ok_({ ran: true });
+  } catch (ex) {
+    Logger.log('handleCheckUploads_ error: ' + ex.message);
+    return err_('check failed: ' + ex.message, 500);
+  }
 }
 
 function handleListAudit_(params, roleInfo) {
@@ -432,8 +524,15 @@ function handleSetNote_(body, roleInfo) {
     return err_('row is locked (status: ' + row.status + ')', 409);
   }
 
-  var updated = wfUpdateById_(body.id, { note: String(body.note || '') });
-  wfAudit_(roleInfo.email, 'setNote', body.id, row.clientName, row.fileName, { note: body.note });
+  var patch = { note: String(body.note || '') };
+  // When an employee saves a note, promote 'new' → 'in_progress' (note logged = under review).
+  // 'returned' stays as 'returned' until resubmitted; other statuses are unchanged.
+  if (roleInfo.role === 'employee' && row.status === 'new' && patch.note) {
+    patch.status = 'in_progress';
+  }
+
+  var updated = wfUpdateById_(body.id, patch);
+  wfAudit_(roleInfo.email, 'setNote', body.id, row.clientName, row.fileName, patch);
   return ok_(updated);
 }
 

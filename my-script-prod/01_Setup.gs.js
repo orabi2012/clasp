@@ -31,6 +31,7 @@ const COL_EMPLOYEE       = 12; // L — assigned employee
 const COL_FOLDER_URL     = 13; // M — client folder URL
 const COL_FOLDER_ID      = 14; // N — client folder ID
 const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
+const COL_TAX_TYPE       = 16; // P — tax declaration type (Monthly/Quarter)
 const COL_DATE_TAX       = 9;  // I — next tax declaration date
 const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
 
@@ -157,7 +158,7 @@ function setupHeaders() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
 
-  const NUM_COLS = 15;
+  const NUM_COLS = 16;
   const headerRow = sheet.getRange(1, 1, 1, NUM_COLS);
 
   // ── Write header labels ───────────────────────────────────
@@ -176,7 +177,8 @@ function setupHeaders() {
     'assined_employee',  // L - COL_EMPLOYEE
     'folder_url',        // M - COL_FOLDER_URL
     'folder_id',         // N - COL_FOLDER_ID
-    'prev_employee'      // O - COL_PREV_EMPLOYEE
+    'prev_employee',     // O - COL_PREV_EMPLOYEE
+    'tax_type'           // P - COL_TAX_TYPE
   ]]);
 
   // ── Header row styling ────────────────────────────────────

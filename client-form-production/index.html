@@ -83,15 +83,26 @@
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblTax">الرقم الضريبي</span> <span class="required">*</span></label>
           <input type="text" class="form-control" id="taxNumber"
-                 placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errTax">الرجاء إدخال الرقم الضريبي</div>
+                 placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required pattern="[0-9]{15}" maxlength="15">
+          <div class="invalid-feedback" data-i18n="errTax">الرجاء إدخال الرقم الضريبي (15 رقماً)</div>
         </div>
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblCR">الرقم المميز</span> <span class="required">*</span></label>
           <input type="text" class="form-control" id="crNumber"
-                 data-i18n-placeholder="phCR" placeholder="الرقم المميز" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errCR">الرجاء إدخال الرقم المميز</div>
+                 data-i18n-placeholder="phCR" placeholder="الرقم المميز" dir="ltr" required pattern="[0-9]{10}" maxlength="10" readonly style="background:#f8f9fa;cursor:default;">
+          <div class="invalid-feedback" data-i18n="errCR">الرجاء إدخال الرقم الضريبي أولاً</div>
         </div>
+      </div>
+
+      <!-- ── Tax Declaration Type ── -->
+      <div class="mb-3">
+        <label class="form-label"><span data-i18n="lblTaxType">نوع الإقرار الضريبي</span> <span class="required">*</span></label>
+        <select class="form-select" id="taxType" required>
+          <option value="" data-i18n="phTaxType">-- اختر النوع --</option>
+          <option value="Monthly" data-i18n="optMonthly">شهري</option>
+          <option value="Quarter" data-i18n="optQuarter">ربع سنوي</option>
+        </select>
+        <div class="invalid-feedback" data-i18n="errTaxType">الرجاء اختيار نوع الإقرار</div>
       </div>
 
       <!-- ── Dates ── -->
@@ -101,12 +112,12 @@
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblD1">تاريخ أول إقرار ضريبي</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d1" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
         </div>
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblD2">تاريخ السجل التجاري</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d2" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
         </div>
       </div>
 
@@ -114,12 +125,12 @@
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblD3">الإقرار الضريبي القادم</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d3" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
         </div>
         <div class="col-md-6">
           <label class="form-label"><span data-i18n="lblD4">الإقرار الزكوي القادم</span> <span class="required">*</span></label>
           <input type="date" class="form-control" id="d4" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDate">الرجاء تحديد التاريخ</div>
+          <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
         </div>
       </div>
 
@@ -171,9 +182,16 @@
       errName:        'الرجاء إدخال الاسم',
       errPhone:       'الرجاء إدخال رقم الهاتف',
       errEmail:       'الرجاء إدخال البريد الإلكتروني',
-      errTax:         'الرجاء إدخال الرقم الضريبي',
-      errCR:          'الرجاء إدخال الرقم المميز',
+      errTax:         'الرجاء إدخال الرقم الضريبي (15 رقماً)',
+      errCR:          'الرجاء إدخال الرقم المميز (10 أرقام)',
       errDate:        'الرجاء تحديد التاريخ',
+      errDatePast:    'يجب أن يكون التاريخ في الماضي',
+      errDateFuture:  'يجب أن يكون التاريخ في المستقبل',
+      lblTaxType:     'نوع الإقرار الضريبي',
+      phTaxType:      '-- اختر النوع --',
+      optMonthly:     'شهري',
+      optQuarter:     'ربع سنوي',
+      errTaxType:     'الرجاء اختيار نوع الإقرار',
       btnSubmit:      'إرسال الطلب',
       btnSending:     'جارٍ الإرسال…',
       footerNote:     'جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية',
@@ -210,9 +228,16 @@
       errName:        'Please enter your name',
       errPhone:       'Please enter your phone number',
       errEmail:       'Please enter your email',
-      errTax:         'Please enter your tax number',
-      errCR:          'Please enter your CR number',
+      errTax:         'Please enter a valid 15-digit tax number',
+      errCR:          'Please enter a valid 10-digit CR number',
       errDate:        'Please select a date',
+      errDatePast:    'Date must be in the past',
+      errDateFuture:  'Date must be in the future',
+      lblTaxType:     'Tax Declaration Type',
+      phTaxType:      '-- Select Type --',
+      optMonthly:     'Monthly',
+      optQuarter:     'Quarterly',
+      errTaxType:     'Please select the declaration type',
       btnSubmit:      'Submit Request',
       btnSending:     'Sending…',
       footerNote:     'All fields marked with <span style="color:#f87171">*</span> are required',
@@ -279,6 +304,24 @@
   }
 
   window.addEventListener('load', function() {
+    // ── Date constraints ──
+    var today     = new Date();
+    var todayStr  = today.toISOString().split('T')[0];
+    var yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    var yesterStr = yesterday.toISOString().split('T')[0];
+    var tomorrow  = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+    var tmrwStr   = tomorrow.toISOString().split('T')[0];
+    document.getElementById('d1').max = yesterStr;   // First Tax Date: past
+    document.getElementById('d2').max = yesterStr;   // CR Date: past
+    document.getElementById('d3').min = tmrwStr;     // Next Tax: future
+    document.getElementById('d4').min = tmrwStr;     // Next Zakat: future
+
+    // ── Auto-derive CR Number from Tax Number ──
+    document.getElementById('taxNumber').addEventListener('input', function() {
+      var tin = this.value.replace(/\D/g, '');
+      document.getElementById('crNumber').value = tin.length >= 10 ? tin.substring(0, 10) : '';
+    });
+
     if (typeof google !== 'undefined' && google.accounts) {
       google.accounts.id.initialize({
         client_id: '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com',
@@ -317,6 +360,7 @@
       phone:     document.getElementById('clientPhone').value,
       taxNumber: document.getElementById('taxNumber').value,
       crNumber:  document.getElementById('crNumber').value,
+      taxType:   document.getElementById('taxType').value,
       date1:     document.getElementById('d1').value,
       date2:     document.getElementById('d2').value,
       date3:     document.getElementById('d3').value,

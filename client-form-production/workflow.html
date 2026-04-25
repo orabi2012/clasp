@@ -176,8 +176,12 @@
   <div id="supDashboard" class="wf-body" style="display:none;">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div class="section-label mb-0" data-i18n="secPending">الملفات بانتظار المراجعة</div>
-      <button type="button" class="btn btn-outline-secondary btn-sm"
-        style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadPending()" data-i18n="btnRefresh">تحديث</button>
+      <div class="d-flex gap-2">
+        <button type="button" id="btnCheckUploads" class="btn btn-outline-primary btn-sm"
+          style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="runCheckUploads()" data-i18n="btnCheckUploads">تحديث رفع الملفات</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+          style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadPending()" data-i18n="btnRefresh">تحديث</button>
+      </div>
     </div>
     <div class="filter-bar d-flex align-items-center gap-2 flex-wrap">
       <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterEmp">الموظف:</label>
@@ -189,10 +193,10 @@
       <select id="supStatusFilter" class="form-select form-select-sm"
         style="width:auto;min-width:180px;font-family:'Cairo',sans-serif;font-size:.82rem;" onchange="renderSupClientList()">
         <option value="" data-i18n="filterAllStatuses">كل الحالات</option>
-        <option value="new" data-i18n="sNew">جديد</option>
+        <option value="new" data-i18n="sNew">ملف جديد</option>
         <option value="in_progress" data-i18n="sInProgress">قيد المراجعة</option>
-        <option value="returned" data-i18n="sReturned">مُرجَّع</option>
-        <option value="submitted" data-i18n="sSubmitted">بانتظار المشرف</option>
+        <option value="returned" data-i18n="sReturned">عائد للموظف</option>
+        <option value="submitted" data-i18n="sSubmitted">مُحوّل للمشرف</option>
         <option value="approved_sent" data-i18n="sApproved">أُرسل للعميل</option>
       </select>
     </div>
@@ -223,9 +227,9 @@
       </div>
 
       <div class="d-flex gap-2 mt-3 flex-wrap" id="supActionBar">
-        <button type="button" class="btn btn-action" style="background:var(--brand);color:#fff;"
+        <button type="button" class="btn btn-action" style="background:var(--brand);color:#fff;display:none;"
           onclick="openApproveModal()" id="btnApprove" data-i18n="btnApprove">✓ إرسال للعميل</button>
-        <button type="button" class="btn btn-action btn-outline-warning"
+        <button type="button" class="btn btn-action btn-outline-warning" style="display:none;"
           onclick="openReturnModal()" id="btnReturn" data-i18n="btnReturn">↩ إرجاع للموظف</button>
       </div>
     </div>
@@ -319,13 +323,13 @@ var T = {
     unauthBody:'بريدك الإلكتروني غير مسجل في النظام.',
     tryAnother:'تجربة بريد آخر', logout:'خروج',
     secMyClients:'عملائي', secPending:'كل الملفات',
-    filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnBack:'← رجوع',
+    filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnCheckUploads:'تحديث رفع الملفات', btnCheckingUploads:'جارٍ التحديث…', toastUploadsChecked:'تم فحص الرفع ✓', btnBack:'← رجوع',
     thFile:'الملف', thDate:'التاريخ', thStatus:'الحالة',
     thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع',
     noRows:'لا توجد مهمات', noClients:'لا توجد عملاء',
-    sNew:'جديد', sInProgress:'قيد المراجعة', sReturned:'مُرجَّع',
-    sSubmitted:'بانتظار المشرف', sApproved:'أُرسل للعميل',
-    btnSaveNote:'حفظ', btnMarkDone:'مراجَع',
+    sNew:'ملف جديد', sInProgress:'قيد المراجعة', sReturned:'عائد للموظف',
+    sSubmitted:'مُحوّل للمشرف', sApproved:'أُرسل للعميل',
+    btnSaveNote:'حفظ الملحوظة', btnMarkDone:'تمت المراجعة',
     submitDayHint:'اختر يوماً لإرسال ملفاته إلى المشرف',
     btnSubmitDay:'إرسال اليوم للمشرف',
     btnApprove:'✓ إرسال للعميل', btnReturn:'↩ إرجاع للموظف',
@@ -353,7 +357,7 @@ var T = {
     unauthBody:'Your email is not registered in the system.',
     tryAnother:'Try another account', logout:'Sign out',
     secMyClients:'My Clients', secPending:'All Files',
-    filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnBack:'← Back',
+    filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnCheckUploads:'تحديث رفع الملفات', btnCheckingUploads:'جارٍ التحديث…', toastUploadsChecked:'Uploads checked ✓', btnBack:'← Back',
     thFile:'File', thDate:'Date', thStatus:'Status',
     thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns',
     noRows:'No tasks yet', noClients:'No clients',
@@ -697,7 +701,14 @@ function doSubmitDay() {
             year:parts[0], month:parts[1], day:parts[2] }, function(err, res) {
     btn.disabled = false;
     btn.textContent = T[LANG].btnSubmitDay;
-    if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
+    if (err||!res||!res.ok) {
+      var msg = T[LANG].toastError;
+      if (err && err.message) msg += ' — ' + err.message;
+      else if (res && res.error) msg += ' — ' + res.error;
+      else if (res) msg += ' — ' + JSON.stringify(res);
+      showToast(msg, true);
+      return;
+    }
     showToast(T[LANG].toastSubmitted, false);
     reloadRows();
     loadMyClients();
@@ -711,6 +722,7 @@ function closeDetail() {
 }
 
 // ── Supervisor ────────────────────────────────────────────────
+// ── Supervisor ────────────────────────────────────────────────
 function loadPending() {
   document.getElementById('supClientList').innerHTML =
     '<div class="text-center py-4"><div class="spinner-border spinner-border-sm" style="color:var(--brand)"></div></div>';
@@ -719,6 +731,22 @@ function loadPending() {
     if (err||!res||!res.ok) { showToast(T[LANG].toastError, true); return; }
     pendingData = res.data || [];
     renderSupClientList();
+  });
+}
+
+function runCheckUploads() {
+  var t   = T[LANG];
+  var btn = document.getElementById('btnCheckUploads');
+  if (!btn) return;
+  var prevLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t.btnCheckingUploads;
+  apiPost({ action:'checkUploads' }, function(err, res) {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+    if (err || !res || !res.ok) { showToast(t.toastError, true); return; }
+    showToast(t.toastUploadsChecked);
+    loadPending();
   });
 }
 
@@ -805,7 +833,7 @@ function openSupDetailById(cid) {
     var chkDisabled = isSubmitted ? '' : ' disabled';
     return [
       '<tr>',
-        '<td><input type="checkbox" class="form-check-input row-chk" style="width:1.1em;height:1.1em;"'+chkDisabled+' value="'+esc(r.id)+'"></td>',
+        '<td><input type="checkbox" class="form-check-input row-chk" style="width:1.1em;height:1.1em;"'+chkDisabled+' onchange="updateSupActionButtons()" value="'+esc(r.id)+'"></td>',
         '<td>'+fileLink+'</td>',
         '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
         '<td>'+badge(r.status)+'</td>',
@@ -816,6 +844,8 @@ function openSupDetailById(cid) {
   }).join('');
 
   document.getElementById('supActionBar').style.display = hasSubmitted ? '' : 'none';
+  document.getElementById('btnApprove').style.display = 'none';
+  document.getElementById('btnReturn').style.display  = 'none';
   document.getElementById('supDetail').style.display = '';
 }
 
@@ -826,6 +856,13 @@ function closeSupDetail() {
 
 function toggleSelectAll(cb) {
   document.querySelectorAll('.row-chk:not([disabled])').forEach(function(el){ el.checked = cb.checked; });
+  updateSupActionButtons();
+}
+
+function updateSupActionButtons() {
+  var anyChecked = document.querySelectorAll('.row-chk:checked').length > 0;
+  document.getElementById('btnApprove').style.display = anyChecked ? '' : 'none';
+  document.getElementById('btnReturn').style.display  = anyChecked ? '' : 'none';
 }
 
 function getSelectedIds() {
