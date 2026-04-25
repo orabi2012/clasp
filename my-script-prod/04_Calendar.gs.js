@@ -3,14 +3,15 @@
 // Google Calendar events for client declaration dates
 // ============================================================
 
-function createOrUpdateClientEvents(clientName, clientEmail, employeeEmail, zakatDate, taxDate, folderUrl) {
+function createOrUpdateClientEvents(clientName, clientEmail, employeeEmail, zakatDate, taxDate, folderUrl, supervisorEmail) {
   if (taxDate) {
     createOrUpdateEvent_(
       'الإقرار الضريبي — ' + clientName,
       taxDate,
       clientEmail,
       employeeEmail,
-      'تاريخ تقديم الإقرار الضريبي القادم للعميل: ' + clientName + (folderUrl ? '\n' + folderUrl : '')
+      'تاريخ تقديم الإقرار الضريبي القادم للعميل: ' + clientName + (folderUrl ? '\n' + folderUrl : ''),
+      supervisorEmail
     );
   }
   if (zakatDate) {
@@ -19,12 +20,13 @@ function createOrUpdateClientEvents(clientName, clientEmail, employeeEmail, zaka
       zakatDate,
       clientEmail,
       employeeEmail,
-      'تاريخ تقديم الإقرار الزكوي القادم للعميل: ' + clientName + (folderUrl ? '\n' + folderUrl : '')
+      'تاريخ تقديم الإقرار الزكوي القادم للعميل: ' + clientName + (folderUrl ? '\n' + folderUrl : ''),
+      supervisorEmail
     );
   }
 }
 
-function createOrUpdateEvent_(title, date, clientEmail, employeeEmail, description) {
+function createOrUpdateEvent_(title, date, clientEmail, employeeEmail, description, supervisorEmail) {
   const eventDate = new Date(date);
   if (isNaN(eventDate.getTime())) {
     Logger.log('Invalid date: ' + date);
@@ -49,7 +51,7 @@ function createOrUpdateEvent_(title, date, clientEmail, employeeEmail, descripti
   }
 
   // Build guest list — supervisor owns the event, emp & client are read-only guests
-  const attendees = [clientEmail, employeeEmail]
+  const attendees = [clientEmail, employeeEmail, supervisorEmail]
     .filter(function(e) { return !!e; })
     .map(function(e) { return { email: e }; });
 
@@ -71,9 +73,10 @@ function createOrUpdateEvent_(title, date, clientEmail, employeeEmail, descripti
     { sendUpdates: 'none' }  // suppress Google's plain invite — we send our own branded email
   );
 
-  // Send branded Statix notification to both employee and client
-  if (employeeEmail) sendCalendarEventNotification_(employeeEmail, title, eventDate, description, 'ar');
-  if (clientEmail)   sendCalendarEventNotification_(clientEmail,   title, eventDate, description, 'ar');
+  // Send branded Statix notification to employee, supervisor, and client
+  if (employeeEmail)   sendCalendarEventNotification_(employeeEmail,   title, eventDate, description, 'ar');
+  if (supervisorEmail) sendCalendarEventNotification_(supervisorEmail, title, eventDate, description, 'ar');
+  if (clientEmail)     sendCalendarEventNotification_(clientEmail,     title, eventDate, description, 'ar');
 
   Logger.log('Created event: ' + title + ' on ' + dateStr);
 }
@@ -108,17 +111,20 @@ function checkUpcomingDates() {
     if (!clientName || !employee) continue;
 
     const empEmail = getEmployeeEmail(employee, ss);
+    const supData   = getSupervisorForEmployee_(employee, ss);
+    const supEmail  = supData ? supData.email : '';
 
-    notifyIfDue_(clientName, clientEmail, empEmail, taxDate,   'الإقرار الضريبي', clientLang, folderUrl, target);
-    notifyIfDue_(clientName, clientEmail, empEmail, zakatDate, 'الإقرار الزكوي',  clientLang, folderUrl, target);
+    notifyIfDue_(clientName, clientEmail, empEmail, supEmail, taxDate,   'الإقرار الضريبي', clientLang, folderUrl, target);
+    notifyIfDue_(clientName, clientEmail, empEmail, supEmail, zakatDate, 'الإقرار الزكوي',  clientLang, folderUrl, target);
   }
 }
 
-function notifyIfDue_(clientName, clientEmail, empEmail, dateVal, type, clientLang, folderUrl, target) {
+function notifyIfDue_(clientName, clientEmail, empEmail, supEmail, dateVal, type, clientLang, folderUrl, target) {
   if (!dateVal) return;
   const d = new Date(dateVal); d.setHours(0, 0, 0, 0);
   if (d.getTime() !== target.getTime()) return;
 
   if (empEmail)    sendDateReminder_(empEmail,    clientName, type, d, CALENDAR_REMINDER_DAYS, folderUrl, 'ar');
+  if (supEmail)    sendDateReminder_(supEmail,    clientName, type, d, CALENDAR_REMINDER_DAYS, folderUrl, 'ar');
   if (clientEmail) sendDateReminder_(clientEmail, clientName, type, d, CALENDAR_REMINDER_DAYS, folderUrl, clientLang);
 }

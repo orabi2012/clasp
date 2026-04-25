@@ -224,7 +224,7 @@
 
       <div class="d-flex gap-2 mt-3 flex-wrap" id="supActionBar">
         <button type="button" class="btn btn-action" style="background:var(--brand);color:#fff;"
-          onclick="doApproveAndSend()" id="btnApprove" data-i18n="btnApprove">✓ إرسال للعميل</button>
+          onclick="openApproveModal()" id="btnApprove" data-i18n="btnApprove">✓ إرسال للعميل</button>
         <button type="button" class="btn btn-action btn-outline-warning"
           onclick="openReturnModal()" id="btnReturn" data-i18n="btnReturn">↩ إرجاع للموظف</button>
       </div>
@@ -239,8 +239,7 @@
 </div>
 
 <!-- Return note modal -->
-<div class="modal fade" id="returnModal" tabindex="-1">
-  <div class="modal-dialog">
+<div class="modal fade" id="returnModal" tabindex="-1">  <div class="modal-dialog">
     <div class="modal-content" style="font-family:'Cairo',sans-serif;">
       <div class="modal-header">
         <h5 class="modal-title" data-i18n="modalReturnTitle">سبب الإرجاع</h5>
@@ -255,6 +254,28 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="btnCancel">إلغاء</button>
         <button type="button" class="btn btn-warning" onclick="doReturnToEmp()" id="btnConfirmReturn" data-i18n="btnConfirmReturn">إرجاع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Approve note modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="font-family:'Cairo',sans-serif;">
+      <div class="modal-header">
+        <h5 class="modal-title" data-i18n="modalApproveTitle">إرسال للعميل</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" style="font-weight:600;font-size:.9rem;" data-i18n="modalApproveLabel">ملاحظة للعميل (اختياري)</label>
+        <textarea id="approveNoteArea" class="form-control" rows="3"
+          style="font-family:'Cairo',sans-serif;border-radius:8px;"
+          data-i18n-placeholder="modalApprovePlaceholder" placeholder="أدخل ملاحظة اختيارية…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="btnCancel">إلغاء</button>
+        <button type="button" class="btn" style="background:var(--brand);color:#fff;" onclick="doApproveAndSend()" id="btnConfirmApprove" data-i18n="btnConfirmApprove">إرسال</button>
       </div>
     </div>
   </div>
@@ -301,7 +322,7 @@ var T = {
     filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnBack:'← رجوع',
     thFile:'الملف', thDate:'التاريخ', thStatus:'الحالة',
     thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع',
-    noRows:'لا توجد سجلات', noClients:'لا توجد عملاء',
+    noRows:'لا توجد مهمات', noClients:'لا توجد عملاء',
     sNew:'جديد', sInProgress:'قيد المراجعة', sReturned:'مُرجَّع',
     sSubmitted:'بانتظار المشرف', sApproved:'أُرسل للعميل',
     btnSaveNote:'حفظ', btnMarkDone:'مراجَع',
@@ -311,6 +332,9 @@ var T = {
     modalReturnTitle:'سبب الإرجاع', modalReturnLabel:'أدخل ملاحظة للموظف (إلزامي)',
     modalReturnPlaceholder:'سبب الإرجاع…',
     btnCancel:'إلغاء', btnConfirmReturn:'إرجاع',
+    modalApproveTitle:'إرسال للعميل', modalApproveLabel:'ملاحظة للعميل (اختياري)',
+    modalApprovePlaceholder:'أدخل ملاحظة اختيارية…', btnConfirmApprove:'إرسال',
+    supReturnNote:'ملاحظة المشرف:',
     toastSaved:'تم الحفظ ✓', toastError:'حدث خطأ، حاول مرة أخرى',
     toastSubmitted:'تم الإرسال للمشرف ✓', toastApproved:'تم الإرسال للعميل ✓',
     toastReturned:'تم الإرجاع للموظف ✓', selectOne:'اختر ملفاً على الأقل',
@@ -332,7 +356,7 @@ var T = {
     filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnBack:'← Back',
     thFile:'File', thDate:'Date', thStatus:'Status',
     thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns',
-    noRows:'No records', noClients:'No clients',
+    noRows:'No tasks yet', noClients:'No clients',
     sNew:'New', sInProgress:'In Progress', sReturned:'Returned',
     sSubmitted:'Pending Supervisor', sApproved:'Sent to Client',
     btnSaveNote:'Save', btnMarkDone:'Mark Done',
@@ -342,6 +366,9 @@ var T = {
     modalReturnTitle:'Return Reason', modalReturnLabel:'Add a note for the employee (required)',
     modalReturnPlaceholder:'Return reason…',
     btnCancel:'Cancel', btnConfirmReturn:'Return',
+    modalApproveTitle:'Send to Client', modalApproveLabel:'Note for client (optional)',
+    modalApprovePlaceholder:'Enter an optional note…', btnConfirmApprove:'Send',
+    supReturnNote:'Supervisor Note:',
     toastSaved:'Saved ✓', toastError:'An error occurred, please try again',
     toastSubmitted:'Submitted to supervisor ✓', toastApproved:'Sent to client ✓',
     toastReturned:'Returned to employee ✓', selectOne:'Select at least one file',
@@ -588,6 +615,12 @@ function renderEmpRows() {
     var noteCell = canEdit
       ? '<textarea class="form-control note-input" rows="2" id="note-'+esc(r.id)+'">'+esc(r.note||'')+'</textarea>'
       : '<span style="font-size:.8rem;">'+esc(r.note||'—')+'</span>';
+    var supNoteHtml = r.lastReturnNote
+      ? '<div style="background:#fffbeb;border-right:3px solid #f59e0b;border-radius:6px;padding:8px 12px;margin-top:6px;">' +
+        '<p style="margin:0 0 2px;font-size:.72rem;font-weight:700;color:#92400e;">' + t.supReturnNote + '</p>' +
+        '<p style="margin:0;font-size:.78rem;color:#4a5568;line-height:1.7;">' + esc(r.lastReturnNote) + '</p>' +
+        '</div>'
+      : '';
     var actCell = '';
     if (canEdit) {
       var markBtn = r.finished
@@ -603,7 +636,7 @@ function renderEmpRows() {
         '<td class="text-center">',
           r.finished ? '<span style="color:#0f5132;font-size:1.1rem;">✓</span>' : '<span style="color:#aaa;">—</span>',
         '</td>',
-        '<td>'+noteCell+'</td>',
+        '<td>'+noteCell+supNoteHtml+'</td>',
         '<td>'+actCell+'</td>',
       '</tr>'
     ].join('');
@@ -799,13 +832,21 @@ function getSelectedIds() {
   return Array.from(document.querySelectorAll('.row-chk:checked')).map(function(el){ return el.value; });
 }
 
-function doApproveAndSend() {
+function openApproveModal() {
   var ids = getSelectedIds();
   if (!ids.length) { showToast(T[LANG].selectOne, true); return; }
-  var btn = document.getElementById('btnApprove');
+  document.getElementById('approveNoteArea').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('approveModal')).show();
+}
+
+function doApproveAndSend() {
+  var ids  = getSelectedIds();
+  var note = document.getElementById('approveNoteArea').value.trim();
+  var btn  = document.getElementById('btnConfirmApprove');
   btn.disabled = true;
-  apiPost({ action:'approveAndSend', ids:ids }, function(err, res) {
+  apiPost({ action:'approveAndSend', ids:ids, supervisorNote:note }, function(err, res) {
     btn.disabled = false;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('approveModal')).hide();
     if (err||!res||!res.ok) { showToast(T[LANG].toastError+(res&&res.error?' — '+res.error:''), true); return; }
     showToast(T[LANG].toastApproved, false);
     loadPending();

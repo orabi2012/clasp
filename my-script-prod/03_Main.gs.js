@@ -114,13 +114,14 @@ function onEmployeeAssigned(e) {
   const guidelinesUrl  = getSubfolderUrl_(clientFolder, FOLDER_GUIDELINES, folderUrl);
 
   const employeeData = getEmployeeData(newEmployee, e.source);
+  const supervisorData = getSupervisorForEmployee_(newEmployee, e.source);
 
   // -- 6. Send emails --
   try {
     const clientLang = rowData[COL_LANG - 1] || 'ar';
-    sendEmailToEmployee(newEmployeeEmail, newEmployee, clientName, clientEmail, rowData, uploadsUrl, resultsUrl, stageUrl);
+    sendEmailToEmployee(newEmployeeEmail, newEmployee, clientName, clientEmail, rowData);
     if (clientEmail) {
-      sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, guidelinesUrl, clientLang);
+      sendEmailToClient(clientEmail, clientName, supervisorData, uploadsUrl, resultsUrl, guidelinesUrl, clientLang);
     }
   } catch (err) {
     Logger.log('Warning: send email: ' + err.message);
@@ -134,7 +135,8 @@ function onEmployeeAssigned(e) {
       newEmployeeEmail,
       rowData[COL_DATE_ZAKAT - 1],
       rowData[COL_DATE_TAX   - 1],
-      folderUrl
+      folderUrl,
+      supervisorData ? supervisorData.email : ''
     );
   } catch (err) {
     Logger.log('Warning: calendar: ' + err.message);
@@ -191,6 +193,7 @@ function onDateChanged(e) {
   if (!employee) return;
 
   const employeeEmail = getEmployeeEmail(employee, e.source);
+  const supData2      = getSupervisorForEmployee_(employee, e.source);
 
   try {
     createOrUpdateClientEvents(
@@ -199,7 +202,8 @@ function onDateChanged(e) {
       employeeEmail,
       rowData[COL_DATE_ZAKAT - 1],
       rowData[COL_DATE_TAX   - 1],
-      folderUrl
+      folderUrl,
+      supData2 ? supData2.email : ''
     );
     Logger.log('Calendar updated for client: ' + clientName);
   } catch (err) {

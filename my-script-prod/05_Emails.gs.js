@@ -5,6 +5,14 @@
 
 // -- Shared email building blocks -----------------------------
 
+function esc_(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function emailLogo_() {
   if (!COMPANY_LOGO_URL) return '';
   return `
@@ -101,7 +109,7 @@ function emailWrapper_(content, lang) {
 
 // -- sendEmailToEmployee --------------------------------------
 
-function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmail, clientRow, uploadsUrl, resultsUrl, stageUrl) {
+function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmail, clientRow) {
   const subject     = 'تم تعيينك على العميل: ' + clientName;
   const clientPhone = clientRow[3] || 'غير متوفر';
   const taxNumber   = clientRow[4] || 'غير متوفر';
@@ -119,15 +127,11 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
         ['الرقم المميز',   uniqueNum]
       ])}
 
-      <p style="font-size:13px;color:#718096;margin:0 0 14px 0;font-weight:600;">المجلدات المخصصة لك:</p>
-
-      ${folderCard_('#8b5cf6', '#faf5ff', '#8b5cf6', 'مجلد العمل', 'stage',
-        'مجلد العمل الخاص بك، منظم بالسنوات والأشهر والأيام.',
-        stageUrl, 'افتح مجلد العمل')}
-
-      ${folderCard_('#22c55e', '#f6fef9', '#22c55e', 'مجلد النتائج', 'results',
-        'ضع هنا النتائج والتقارير النهائية. العميل يملك صلاحية قراءة فقط.',
-        resultsUrl, 'افتح مجلد النتائج')}
+      ${getPortalUrl_() ? `<div style="text-align:center;margin-top:8px;">
+        <a href="${getPortalUrl_()}/workflow.html" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+          افتح لوحة المتابعة ←
+        </a>
+      </div>` : ''}
 
     </div>
     ${emailFooter_('ar')}`;
@@ -179,7 +183,7 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
         isEn ? 'Open Guidelines' : 'افتح الارشادات') : ''}
 
       ${infoCard_(
-        isEn ? 'Your Assigned Employee' : 'الموظف المسؤول عنك',
+        isEn ? 'Your Assigned Supervisor' : 'المشرف المسؤول عنك',
         '#0d6b6e', [
           [isEn ? 'Name'  : 'الاسم',   empName],
           [isEn ? 'Email' : 'الايميل', empEmail],
@@ -190,6 +194,47 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
     ${emailFooter_(lang)}`;
 
   GmailApp.sendEmail(clientEmail, subject, '', { htmlBody: emailWrapper_(content, lang), charset: 'UTF-8' });
+}
+
+// -- sendNewClientAdminEmail_ ---------------------------------
+// Notifies all admin emails (ADMIN_EMAILS script property) when a new
+// client submits the registration form.
+
+function sendNewClientAdminEmail_(data, lang) {
+  const adminEmails = (PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS') || '')
+    .split(',').map(function(e) { return e.trim(); }).filter(Boolean);
+  if (!adminEmails.length) return;
+
+  const isEn    = lang === 'en';
+  const subject = isEn
+    ? 'New Client Registered: ' + data.name
+    : 'عميل جديد: ' + data.name;
+
+  const content = `
+    ${emailHeader_('#1a73e8',
+      isEn ? 'New Client Registration' : 'تسجيل عميل جديد',
+      isEn ? 'A new client has submitted the registration form'
+           : 'قام عميل جديد بتعبئة نموذج التسجيل')}
+    <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
+      ${infoCard_(isEn ? 'Client Details' : 'بيانات العميل', '#1a73e8', [
+        [isEn ? 'Name'       : 'الاسم',             data.name      || '—'],
+        [isEn ? 'Email'      : 'الايميل',            data.email     || '—'],
+        [isEn ? 'Phone'      : 'الهاتف',             data.phone     || '—'],
+        [isEn ? 'Tax Number' : 'الرقم الضريبي',      data.taxNumber || '—'],
+        [isEn ? 'CR Number'  : 'الرقم المميز',       data.crNumber  || '—'],
+        [isEn ? 'Language'   : 'اللغة',              data.lang      || 'ar']
+      ])}
+    </div>
+    ${emailFooter_(lang)}`;
+
+  const html = emailWrapper_(content, lang);
+  adminEmails.forEach(function(email) {
+    try {
+      GmailApp.sendEmail(email, subject, '', { htmlBody: html, charset: 'UTF-8' });
+    } catch (err) {
+      Logger.log('sendNewClientAdminEmail_ error for ' + email + ': ' + err.message);
+    }
+  });
 }
 
 // -- sendCalendarEventNotification_ -------------------------
@@ -295,11 +340,6 @@ function sendDateReminder_(email, clientName, type, date, daysLeft, folderUrl, l
     [isEn ? 'Days Left' : 'الأيام المتبقية',
       '<span style="color:#dc3545;font-weight:700;">' + daysLeft + '</span>']
   ];
-  if (folderUrl) {
-    rows.push([isEn ? 'Folder' : 'المجلد',
-      '<a href="' + folderUrl + '" style="color:#0d6b6e;font-weight:600;">' +
-      (isEn ? 'Open Folder' : 'فتح المجلد') + '</a>']);
-  }
 
   const content = `
     ${emailHeader_('#dc3545',
@@ -432,53 +472,32 @@ function sendFilesReceivedEmail_(clientEmail, clientName, files, dateStr, lang) 
 // filesList: [{ name, url }]
 // notesList: [{ name, note, url }]  (only rows with non-empty notes)
 
-function sendInvoiceDoneEmail_(clientEmail, clientName, dateStr, filesList, notesList, lang) {
+function sendInvoiceDoneEmail_(clientEmail, clientName, dateStr, filesList, notesList, lang, supervisorNote) {
   if (!clientEmail) return;
   const isEn    = lang === 'en';
   const subject = isEn
     ? 'Invoice Processing Complete — ' + dateStr + ' | ' + COMPANY_NAME
     : 'اكتمال معالجة فواتير يوم ' + dateStr;
 
-  // File list rows
+  // File list rows — plain text names, no hyperlinks
   let fileRows = '';
   for (let i = 0; i < filesList.length; i++) {
     const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
     fileRows += `
       <tr style="background:${bg};">
         <td style="padding:11px 14px;font-size:13px;">
-          <a href="${filesList[i].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${filesList[i].name}</a>
+          <span style="font-size:13px;color:#2d3748;">${filesList[i].name}</span>
         </td>
       </tr>`;
   }
 
-  // Notes section (optional)
-  let notesHtml = '';
-  if (notesList && notesList.length > 0) {
-    let notesRows = '';
-    for (let j = 0; j < notesList.length; j++) {
-      const bg = j % 2 === 0 ? '#ffffff' : '#f9fbfc';
-      notesRows += `
-        <tr style="background:${bg};">
-          <td style="padding:10px 12px;font-size:13px;width:40%;">
-            <a href="${notesList[j].url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${notesList[j].name}</a>
-          </td>
-          <td style="padding:10px 12px;font-size:13px;color:#4a5568;">${notesList[j].note}</td>
-        </tr>`;
-    }
-    notesHtml = `
-      <p style="font-size:14px;font-weight:700;color:#2d3748;margin:20px 0 10px 0;">
-        ${isEn ? 'Notes' : 'ملاحظات'}
-      </p>
-      <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr style="background:#f5f7fa;">
-            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">${isEn ? 'File' : 'الملف'}</th>
-            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">${isEn ? 'Note' : 'الملاحظة'}</th>
-          </tr>
-          ${notesRows}
-        </table>
-      </div>`;
-  }
+  // Supervisor note block (optional)
+  const supNoteHtml = supervisorNote
+    ? `<div style="background:#fffbeb;border-right:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin-top:16px;">
+        <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#92400e;">${isEn ? 'Note from Statix:' : 'ملاحظة من Statix:'}</p>
+        <p style="margin:0;font-size:13px;color:#4a5568;line-height:1.8;">${esc_(supervisorNote)}</p>
+       </div>`
+    : '';
 
   const content = `
     ${emailHeader_('#0d6b6e',
@@ -504,7 +523,7 @@ function sendInvoiceDoneEmail_(clientEmail, clientName, dateStr, filesList, note
         </table>
       </div>
 
-      ${notesHtml}
+      ${supNoteHtml}
 
     </div>
     ${emailFooter_(lang)}`;

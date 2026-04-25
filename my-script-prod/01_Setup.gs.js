@@ -62,7 +62,9 @@ const CALENDAR_REMINDER_DAYS = 7;
 const UPLOAD_CHECK_MINUTES    = 1;
 
 // ── Web App URL (workflow.html portal) ──────────────────────
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxn2uct1ot2xn3zP5MVPTj4D330qoe5aaIWXUHG78CBN6QNByl_s5uQ4ApTj3xn3dTT/exec';
+function getPortalUrl_() {
+  return PropertiesService.getScriptProperties().getProperty('PORTAL_URL') || '';
+}
 
 // ── Workflow Sheet Columns (1-based) ────────────────────────
 const WF_COL_ID              = 1;  // A — uuid

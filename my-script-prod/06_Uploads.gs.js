@@ -144,7 +144,7 @@ function checkUploadsForNewFiles() {
         const dateStr = Utilities.formatDate(group.date, Session.getScriptTimeZone(), 'dd/MM/yyyy');
 
         try {
-          sendUploadNotification(employeeEmail, employee, clientName, group.dayFolderUrl, group.files, dateStr, WEB_APP_URL);
+          sendUploadNotification(employeeEmail, employee, clientName, group.dayFolderUrl, group.files, dateStr, getPortalUrl_());
         } catch (err) {
           Logger.log('[' + clientName + '] employee notification error: ' + err.message);
         }

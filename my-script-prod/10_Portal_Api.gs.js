@@ -245,6 +245,10 @@ function submitClient(data) {
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
     .setFontWeight('bold').setHorizontalAlignment('center');
+
+  try { sendNewClientAdminEmail_(data, lang); } catch (err) {
+    Logger.log('sendNewClientAdminEmail_ error: ' + err.message);
+  }
 }
 
 // ── Portal GET handlers ────────────────────────────────────────
@@ -277,6 +281,35 @@ function handleListMyClients_(roleInfo) {
     clientMap[key].counts.total++;
     if (clientMap[key].counts[r.status] !== undefined) clientMap[key].counts[r.status]++;
   });
+
+  // For employees: also include clients assigned in the customers sheet
+  // that have no workflow rows yet (no files uploaded)
+  if (roleInfo.role === 'employee') {
+    var ssId2 = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+    var ss2   = ssId2 ? SpreadsheetApp.openById(ssId2) : SpreadsheetApp.getActiveSpreadsheet();
+    var custSheet = ss2.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (custSheet && custSheet.getLastRow() > 1) {
+      var custData  = custSheet.getDataRange().getValues();
+      var empNameLc = (roleInfo.name || '').toLowerCase().trim();
+      for (var ci = 1; ci < custData.length; ci++) {
+        var assignedEmp = String(custData[ci][COL_PREV_EMPLOYEE - 1] || custData[ci][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
+        if (!assignedEmp || assignedEmp !== empNameLc) continue;
+        var cFolderId = String(custData[ci][COL_FOLDER_ID - 1] || '').trim();
+        if (!cFolderId) continue;
+        if (!clientMap[cFolderId]) {
+          clientMap[cFolderId] = {
+            clientFolderId: cFolderId,
+            clientName:     custData[ci][COL_NAME  - 1] || '',
+            clientEmail:    custData[ci][COL_EMAIL - 1] || '',
+            empName:        roleInfo.name,
+            empEmail:       roleInfo.email,
+            supName:        '',
+            counts: { total: 0, new: 0, in_progress: 0, submitted: 0, approved_sent: 0, returned: 0 }
+          };
+        }
+      }
+    }
+  }
 
   return ok_(Object.values(clientMap));
 }
@@ -466,7 +499,7 @@ function handleSubmitDay_(body, roleInfo) {
   for (var sKey in supMap) {
     var s = supMap[sKey];
     try {
-      sendSubmittedToSupervisorEmail_(s.supEmail, s.supName, s.empName, s.clientName, s.files, WEB_APP_URL);
+      sendSubmittedToSupervisorEmail_(s.supEmail, s.supName, s.empName, s.clientName, s.files, getPortalUrl_());
     } catch (emailErr) {
       Logger.log('handleSubmitDay_ supervisor notification error for ' + s.supEmail + ': ' + emailErr.message);
     }
@@ -484,6 +517,8 @@ function handleApproveAndSend_(body, roleInfo) {
 
   var ids = body.ids;
   if (!ids || !ids.length) return err_('ids array required');
+
+  var supervisorNote = String(body.supervisorNote || '').trim();
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return err_('server busy, please retry', 503);
@@ -525,7 +560,7 @@ function handleApproveAndSend_(body, roleInfo) {
     var cData = clientMap[cKey];
     try {
       sendInvoiceDoneEmail_(cData.clientEmail, cData.clientName, dateStr,
-                            cData.files, cData.notes, cData.clientLang);
+                            cData.files, cData.notes, cData.clientLang, supervisorNote);
     } catch (emailErr) {
       Logger.log('handleApproveAndSend_ email error for ' + cData.clientName + ': ' + emailErr.message);
     }
