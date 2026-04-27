@@ -71,7 +71,7 @@ function onEmployeeAssigned(e) {
   // -- 2. Create client folder if missing --
   if (!folderId) {
     try {
-      const result = createClientFolder(clientName, clientEmail);
+      const result = withDriveRetry_(function() { return createClientFolder(clientName, clientEmail); }, 3);
       folderId  = result.folderId;
       folderUrl = result.folderUrl;
       setFolderUrlChip_(sheet, editedRow, folderUrl);
@@ -79,7 +79,14 @@ function onEmployeeAssigned(e) {
       SpreadsheetApp.flush();
     } catch (err) {
       Logger.log('Error creating folder: ' + err.message);
-      SpreadsheetApp.getUi().alert('Error creating folder: ' + err.message);
+      // Revert the employee cell back to what it was before
+      sheet.getRange(editedRow, COL_EMPLOYEE).setValue(prevEmployee || '');
+      SpreadsheetApp.flush();
+      SpreadsheetApp.getUi().alert(
+        'فشل إنشاء مجلد العميل بسبب خطأ في Google Drive.\n' +
+        'تم إلغاء التعيين. يرجى المحاولة مرة أخرى بعد قليل.\n\n' +
+        '(Error: ' + err.message + ')'
+      );
       return;
     }
   }

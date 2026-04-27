@@ -150,7 +150,7 @@ function ensureFolders_(parentFolder) {
     }
     if (hasShortcut) { Logger.log('Shortcut exists for: ' + name); continue; }
 
-    parentFolder.createFolder(name);
+    withDriveRetry_(function() { parentFolder.createFolder(name); });
     Logger.log('Created subfolder: ' + name);
   }
 }

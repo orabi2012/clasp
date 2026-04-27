@@ -28,7 +28,17 @@ var PORTAL_CLIENT_ID_PROP = 'PORTAL_CLIENT_ID';
 function verifyIdToken_(idToken) {
   if (!idToken) throw new Error('missing id_token');
 
-  // Fast path: try tokeninfo endpoint
+  // ── Cache check: avoid a tokeninfo HTTP round-trip on every request ──
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'tok_' + Utilities.base64Encode(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, idToken)
+  ).replace(/[^a-zA-Z0-9]/g, '').substring(0, 60);
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* fall through to re-verify */ }
+  }
+
+  // ── Verify via tokeninfo endpoint (cache miss) ──
   var resp = UrlFetchApp.fetch(
     'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
     { muteHttpExceptions: true }
@@ -48,7 +58,17 @@ function verifyIdToken_(idToken) {
     throw new Error('email not verified');
   }
 
-  return { email: payload.email, name: payload.name || '', picture: payload.picture || '' };
+  var result = { email: payload.email, name: payload.name || '', picture: payload.picture || '' };
+
+  // Cache for up to 5 minutes or the token's remaining lifetime, whichever is shorter
+  var ttl = 300;
+  if (payload.exp) {
+    var remaining = Math.floor(Number(payload.exp) - Date.now() / 1000);
+    if (remaining > 0 && remaining < ttl) ttl = remaining;
+  }
+  if (ttl > 0) cache.put(cacheKey, JSON.stringify(result), ttl);
+
+  return result;
 }
 
 // ── Role lookup ────────────────────────────────────────────────

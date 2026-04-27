@@ -5,9 +5,35 @@
 
 // ── Drive Folder Utilities ────────────────────────────────────
 
+/**
+ * Retry a Drive operation up to maxTries times on transient "Service error: Drive" failures.
+ * @param {Function} fn   Zero-arg function to attempt
+ * @param {number}   maxTries
+ */
+function withDriveRetry_(fn, maxTries) {
+  maxTries = maxTries || 4;
+  var delay = 1000;
+  for (var attempt = 1; attempt <= maxTries; attempt++) {
+    try {
+      return fn();
+    } catch (err) {
+      var msg = (err.message || '').toLowerCase();
+      var isTransient = msg.indexOf('service error') !== -1 ||
+                        msg.indexOf('rate limit')    !== -1 ||
+                        msg.indexOf('quota')         !== -1 ||
+                        msg.indexOf('backend error') !== -1 ||
+                        msg.indexOf('timeout')       !== -1;
+      if (!isTransient || attempt === maxTries) throw err;
+      Logger.log('withDriveRetry_: attempt ' + attempt + ' failed (' + err.message + '), retrying in ' + delay + 'ms');
+      Utilities.sleep(delay);
+      delay *= 2;
+    }
+  }
+}
+
 function getOrCreateSubfolder_(parentFolder, folderName) {
   const iter = parentFolder.getFoldersByName(folderName);
-  return iter.hasNext() ? iter.next() : parentFolder.createFolder(folderName);
+  return iter.hasNext() ? iter.next() : withDriveRetry_(function() { return parentFolder.createFolder(folderName); });
 }
 
 function copyFolderContents_(sourceFolder, targetFolder, skipFolderNames) {
@@ -15,7 +41,9 @@ function copyFolderContents_(sourceFolder, targetFolder, skipFolderNames) {
   const files = sourceFolder.getFiles();
   while (files.hasNext()) {
     const file = files.next();
-    file.makeCopy(file.getName(), targetFolder);
+    (function(f) {
+      withDriveRetry_(function() { f.makeCopy(f.getName(), targetFolder); });
+    })(file);
   }
 
   const folders = sourceFolder.getFolders();
@@ -23,10 +51,11 @@ function copyFolderContents_(sourceFolder, targetFolder, skipFolderNames) {
     const subFolder = folders.next();
     if (skip.indexOf(subFolder.getName()) !== -1) {
       // Create the folder but skip copying its contents (deferred)
-      targetFolder.createFolder(subFolder.getName());
+      withDriveRetry_(function() { targetFolder.createFolder(subFolder.getName()); });
       continue;
     }
-    copyFolderContents_(subFolder, targetFolder.createFolder(subFolder.getName()), skip);
+    const newSub = withDriveRetry_(function() { return targetFolder.createFolder(subFolder.getName()); });
+    copyFolderContents_(subFolder, newSub, skip);
   }
 }
 
@@ -69,61 +98,75 @@ function createClientFolder(clientName, clientEmail) {
   const existing = clientsFolder.getFoldersByName(clientName);
   if (existing.hasNext()) {
     const folder = existing.next();
+    // Folder already exists (possibly from a previously failed attempt).
+    // Ensure all required subfolders are present in case they were never created.
+    ensureFolders_(folder);
     return { folderId: folder.getId(), folderUrl: folder.getUrl() };
   }
 
+  // Create the main folder — track it so we can roll back on failure
   const clientFolder = clientsFolder.createFolder(clientName);
-  // Skip stage/ deep structure — built later as a deferred step.
-  // Skip help/ — will be added as a shortcut to the template's help folder.
-  copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE, FOLDER_GUIDELINES]);
+  try {
+    // Skip stage/ deep structure — built later as a deferred step.
+    // Skip help/ — will be added as a shortcut to the template's help folder.
+    copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE, FOLDER_GUIDELINES]);
 
-  // Remove the empty help/ folder that copyFolderContents_ created (skip semantics),
-  // then add a shortcut to the template's help folder instead of duplicating its content.
-  const helpInClientIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
-  if (helpInClientIter.hasNext()) helpInClientIter.next().setTrashed(true);
+    // Remove the empty help/ folder that copyFolderContents_ created (skip semantics),
+    // then add a shortcut to the template's help folder instead of duplicating its content.
+    const helpInClientIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
+    if (helpInClientIter.hasNext()) {
+      try { Drive.Files.remove(helpInClientIter.next().getId()); } catch (e) { /* ignore */ }
+    }
 
-  const helpInTemplateIter = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
-  if (helpInTemplateIter.hasNext()) {
-    const helpTarget = helpInTemplateIter.next();
-    Drive.Files.create({
-      name:            FOLDER_GUIDELINES,
-      mimeType:        'application/vnd.google-apps.shortcut',
-      parents:         [clientFolder.getId()],
-      shortcutDetails: { targetId: helpTarget.getId() }
-    });
-  }
+    const helpInTemplateIter = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
+    if (helpInTemplateIter.hasNext()) {
+      const helpTarget = helpInTemplateIter.next();
+      Drive.Files.create({
+        name:            FOLDER_GUIDELINES,
+        mimeType:        'application/vnd.google-apps.shortcut',
+        parents:         [clientFolder.getId()],
+        shortcutDetails: { targetId: helpTarget.getId() }
+      });
+    }
 
-  // Ensure all required subfolders exist (in case template is missing any).
-  // ensureFolders_ now skips names that already have a shortcut.
-  ensureFolders_(clientFolder);
+    // Ensure all required subfolders exist (in case template is missing any).
+    ensureFolders_(clientFolder);
 
-  const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
-  const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);
+    const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
+    const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);
 
-  if (clientEmail && uploadsIter.hasNext()) {
-    Utilities.sleep(500);
-    drivePermCreate_({ role: 'writer', type: 'user', emailAddress: clientEmail },
-      uploadsIter.next().getId());
-  }
-
-  if (clientEmail && resultsIter.hasNext()) {
-    Utilities.sleep(500);
-    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
-      resultsIter.next().getId());
-  }
-
-  // Grant read access on the template's help folder once per client (shortcut target).
-  if (clientEmail && helpInTemplateIter) {
-    const helpInTemplateIter2 = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
-    if (helpInTemplateIter2.hasNext()) {
+    if (clientEmail && uploadsIter.hasNext()) {
       Utilities.sleep(500);
-      try {
-        drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
-          helpInTemplateIter2.next().getId());
-      } catch (permErr) {
-        Logger.log('help folder perm grant failed for ' + clientEmail + ': ' + permErr.message);
+      drivePermCreate_({ role: 'writer', type: 'user', emailAddress: clientEmail },
+        uploadsIter.next().getId());
+    }
+
+    if (clientEmail && resultsIter.hasNext()) {
+      Utilities.sleep(500);
+      drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
+        resultsIter.next().getId());
+    }
+
+    // Grant read access on the template's help folder once per client (shortcut target).
+    if (clientEmail) {
+      const helpInTemplateIter2 = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
+      if (helpInTemplateIter2.hasNext()) {
+        Utilities.sleep(500);
+        try {
+          drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
+            helpInTemplateIter2.next().getId());
+        } catch (permErr) {
+          Logger.log('help folder perm grant failed for ' + clientEmail + ': ' + permErr.message);
+        }
       }
     }
+
+  } catch (err) {
+    // ── Rollback: trash the partially-created folder so next attempt starts clean ──
+    try { Drive.Files.remove(clientFolder.getId()); } catch (trashErr) {
+      Logger.log('Rollback delete failed: ' + trashErr.message);
+    }
+    throw err; // re-throw so caller handles it
   }
 
   return { folderId: clientFolder.getId(), folderUrl: clientFolder.getUrl() };
@@ -293,7 +336,7 @@ function removeClientShortcutFromEmployee(employeeName, clientName) {
   while (filesIter.hasNext()) {
     const file = filesIter.next();
     if (file.getMimeType() === 'application/vnd.google-apps.shortcut') {
-      file.setTrashed(true);
+      try { Drive.Files.remove(file.getId()); } catch (e) { file.setTrashed(true); }
       Logger.log('Shortcut removed: ' + clientName + ' from ' + employeeName);
       return;
     }
@@ -454,7 +497,7 @@ function removeEmployeeShortcutFromSupervisor_(supervisorName, employeeName) {
   while (filesIter.hasNext()) {
     const file = filesIter.next();
     if (file.getMimeType() === 'application/vnd.google-apps.shortcut') {
-      file.setTrashed(true);
+      try { Drive.Files.remove(file.getId()); } catch (e) { file.setTrashed(true); }
       Logger.log('Shortcut removed: ' + employeeName + ' from supervisor folder of ' + supervisorName);
       return;
     }
