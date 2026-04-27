@@ -154,6 +154,10 @@ function doGet(e) {
       case 'listRows':      return handleListRows_(params, roleInfo);
       case 'listPending':   return handleListPending_(params, roleInfo);
       case 'listAudit':     return handleListAudit_(params, roleInfo);
+      // Admin GET actions
+      case 'admin.me':           return ok_({ isAdmin: isAdmin_(caller.email), email: caller.email, name: caller.name });
+      case 'admin.listClients':  return handleAdminListClients_(caller);
+      case 'admin.listPeople':   return handleAdminListPeople_(caller);
       // Write actions are POST-only — reject any GET attempt
       case 'setFinished':
       case 'setNote':
@@ -204,6 +208,16 @@ function doPost(e) {
       case 'approveAndSend': return handleApproveAndSend_(body, roleInfo);
       case 'returnToEmp':    return handleReturnToEmp_(body, roleInfo);
       case 'checkUploads':   return handleCheckUploads_(roleInfo);
+      // Admin write actions
+      case 'admin.assignEmployee':   return handleAdminAssignEmployee_(body, caller);
+      case 'admin.unassignEmployee': return handleAdminUnassignEmployee_(body, caller);
+      case 'admin.editClient':       return handleAdminEditClient_(body, caller);
+      case 'admin.deactivateClient': return handleAdminSetClientActive_(body, caller, false);
+      case 'admin.reactivateClient': return handleAdminSetClientActive_(body, caller, true);
+      case 'admin.deleteClient':     return handleAdminDeleteClient_(body, caller);
+      case 'admin.addPerson':        return handleAdminAddPerson_(body, caller);
+      case 'admin.editPerson':       return handleAdminEditPerson_(body, caller);
+      case 'admin.deletePerson':     return handleAdminDeletePerson_(body, caller);
       default:
         return err_('unknown action: ' + body.action);
     }
@@ -256,13 +270,14 @@ function submitClient(data) {
   ]);
   var newRow   = sheet.getLastRow();
   sheet.getRange(newRow, COL_TAX_TYPE).setValue(data.taxType || '');
+  sheet.getRange(newRow, COL_IS_ACTIVE).setValue(true); // mark new client as active
   var langCell = sheet.getRange(newRow, COL_LANG);
   langCell
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
     .setFontWeight('bold').setHorizontalAlignment('center');
   var bg = newRow % 2 === 0 ? '#e8f0fe' : '#ffffff';
-  sheet.getRange(newRow, 1, 1, 16).setBackground(bg);
+  sheet.getRange(newRow, 1, 1, 17).setBackground(bg);
   langCell
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
@@ -312,6 +327,14 @@ function handleListMyClients_(roleInfo) {
     if (custSheet && custSheet.getLastRow() > 1) {
       var custData = custSheet.getDataRange().getValues();
 
+      // Remove any deactivated clients that were added via workflow rows
+      for (var di = 1; di < custData.length; di++) {
+        if (custData[di][COL_IS_ACTIVE - 1] === false) {
+          var inactiveFid = String(custData[di][COL_FOLDER_ID - 1] || '').trim();
+          if (inactiveFid && clientMap[inactiveFid]) delete clientMap[inactiveFid];
+        }
+      }
+
       // For supervisors: build a set of employee names whose supervisor is this user
       var empNamesForSup = null;
       if (roleInfo.role === 'supervisor') {
@@ -337,6 +360,9 @@ function handleListMyClients_(roleInfo) {
       for (var ci = 1; ci < custData.length; ci++) {
         var assignedEmpRaw = String(custData[ci][COL_PREV_EMPLOYEE - 1] || custData[ci][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
         if (!assignedEmpRaw) continue;
+
+        // Skip deactivated clients — they should not appear in the employee portal
+        if (custData[ci][COL_IS_ACTIVE - 1] === false) continue;
 
         var matchedEmpInfo = null;
         if (roleInfo.role === 'employee' && assignedEmpRaw === empNameLc) {
@@ -585,6 +611,21 @@ function handleSubmitDay_(body, roleInfo) {
            String(r.day) === String(day);
   });
 
+  // Guard: block submission for deactivated clients
+  var ss         = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID') || '') || SpreadsheetApp.getActiveSpreadsheet();
+  var custSheet  = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (custSheet && custSheet.getLastRow() > 1) {
+    var custData = custSheet.getDataRange().getValues();
+    for (var ci = 1; ci < custData.length; ci++) {
+      if ((custData[ci][COL_FOLDER_ID - 1] || '') === clientFolderId) {
+        if (custData[ci][COL_IS_ACTIVE - 1] === false) {
+          return err_('هذا العميل غير نشط ولا يمكن إرسال ملفاته', 403);
+        }
+        break;
+      }
+    }
+  }
+
   var eligibleRows = rows.filter(function(r) {
     return r.finished === true && EDITABLE_STATUSES.indexOf(r.status) !== -1;
   });
@@ -763,4 +804,492 @@ function handleReturnToEmp_(body, roleInfo) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ============================================================
+// ADMIN API
+// ============================================================
+//
+// Set this in Apps Script → Project Settings → Script Properties:
+//   key:   ADMIN_EMAILS
+//   value: comma-separated list of admin emails (case-insensitive)
+//          e.g.  alice@example.com,bob@example.com
+//
+// Admin page is served at:  <web_app_url>?page=admin
+// All admin.* actions require the caller's email to appear in ADMIN_EMAILS.
+// ============================================================
+
+var ADMIN_EMAILS_PROP = 'ADMIN_EMAILS';
+
+function isAdmin_(email) {
+  if (!email) return false;
+  var raw = PropertiesService.getScriptProperties().getProperty(ADMIN_EMAILS_PROP) || '';
+  var lc  = email.toLowerCase().trim();
+  return raw.split(',').some(function(e) { return e.toLowerCase().trim() === lc; });
+}
+
+function requireAdmin_(caller) {
+  if (!caller || !isAdmin_(caller.email)) {
+    var e = new Error('admin only');
+    e.code = 403;
+    throw e;
+  }
+}
+
+function adminErr_(err) {
+  return err_(err.message, err.code || 500);
+}
+
+function adminSpreadsheet_() {
+  var ssId = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  return ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+}
+
+// ── List clients ─────────────────────────────────────────────
+
+function handleAdminListClients_(caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var ss    = adminSpreadsheet_();
+  var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return ok_([]);
+
+  var data = sheet.getDataRange().getValues();
+  var out  = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    out.push({
+      row:           i + 1, // 1-based sheet row
+      name:          r[COL_NAME      - 1] || '',
+      email:         r[COL_EMAIL     - 1] || '',
+      phone:         r[3]            || '', // D — phone
+      taxNumber:     r[4]            || '', // E
+      crNumber:      r[5]            || '', // F
+      firstTaxDate:  fmtDate_(r[6]),         // G
+      crDate:        fmtDate_(r[7]),         // H
+      nextTaxDate:   fmtDate_(r[COL_DATE_TAX   - 1]), // I
+      nextZakatDate: fmtDate_(r[COL_DATE_ZAKAT - 1]), // J
+      lang:          r[COL_LANG      - 1] || '',
+      employee:      r[COL_EMPLOYEE  - 1] || '',
+      prevEmployee:  r[COL_PREV_EMPLOYEE - 1] || '',
+      folderUrl:     r[COL_FOLDER_URL - 1] || '',
+      folderId:      r[COL_FOLDER_ID  - 1] || '',
+      isActive:      r[COL_IS_ACTIVE  - 1] !== false // blank or TRUE = active; FALSE = inactive
+    });
+  }
+  return ok_(out);
+}
+
+// ── List employees + supervisors ─────────────────────────────
+
+function handleAdminListPeople_(caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var ss = adminSpreadsheet_();
+
+  function readSheet(name, cols) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return [];
+    var data = sh.getDataRange().getValues();
+    var out  = [];
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var obj = { row: i + 1 };
+      Object.keys(cols).forEach(function(k) { obj[k] = r[cols[k] - 1] || ''; });
+      out.push(obj);
+    }
+    return out;
+  }
+
+  var employees = readSheet(EMPLOYEES_SHEET_NAME, {
+    name:       COL_EMP_NAME,
+    job:        COL_EMP_JOB,
+    email:      COL_EMP_EMAIL,
+    phone:      COL_EMP_PHONE,
+    supervisor: COL_EMP_SUPERVISOR,
+    folderUrl:  COL_EMP_FOLDER_URL
+  });
+
+  var supervisors = readSheet(SUPERVISORS_SHEET_NAME, {
+    name:      COL_SUP_NAME,
+    job:       COL_SUP_JOB,
+    email:     COL_SUP_EMAIL,
+    phone:     COL_SUP_PHONE,
+    folderUrl: COL_SUP_FOLDER_URL
+  });
+
+  return ok_({ employees: employees, supervisors: supervisors });
+}
+
+// ── Assign employee ──────────────────────────────────────────
+
+// Helper: format a Date / value to YYYY-MM-DD for the admin UI; '' for blanks.
+function fmtDate_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(v);
+}
+
+// ── Edit client (name / phone / numbers / dates — NOT email) ─
+
+function handleAdminEditClient_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var row = parseInt(body.row || 0);
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  // Whitelist of editable columns (1-based). Email is intentionally excluded.
+  var FIELD_TO_COL = {
+    name:          COL_NAME,        // 3
+    phone:         4,                // D
+    taxNumber:     5,                // E
+    crNumber:      6,                // F
+    firstTaxDate:  7,                // G
+    crDate:        8,                // H
+    nextTaxDate:   COL_DATE_TAX,     // 9
+    nextZakatDate: COL_DATE_ZAKAT    // 10
+  };
+  var DATE_FIELDS = { firstTaxDate:1, crDate:1, nextTaxDate:1, nextZakatDate:1 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return err_('server busy, please retry', 503);
+  try {
+    var ss    = adminSpreadsheet_();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (!sheet) return err_('customers sheet not found', 500);
+    if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+    var datesChanged = false;
+    Object.keys(FIELD_TO_COL).forEach(function(field) {
+      if (!Object.prototype.hasOwnProperty.call(body, field)) return;
+      var col   = FIELD_TO_COL[field];
+      var raw   = body[field];
+      var value = '';
+      if (raw !== null && raw !== undefined && String(raw).trim() !== '') {
+        if (DATE_FIELDS[field]) {
+          // Accept YYYY-MM-DD or anything Date can parse
+          var d = new Date(raw);
+          if (isNaN(d.getTime())) {
+            return; // skip invalid date silently
+          }
+          value = d;
+          datesChanged = true;
+        } else {
+          value = String(raw).trim();
+        }
+      } else if (DATE_FIELDS[field]) {
+        // Explicit blank for date — clear it
+        value = '';
+        datesChanged = true;
+      }
+      sheet.getRange(row, col).setValue(value);
+    });
+    SpreadsheetApp.flush();
+
+    // If date columns changed, refresh calendar events (mirrors onDateChanged)
+    if (datesChanged) {
+      try {
+        var rowData     = sheet.getRange(row, 1, 1, COL_PREV_EMPLOYEE).getValues()[0];
+        var clientName  = rowData[COL_NAME          - 1];
+        var clientEmail = rowData[COL_EMAIL         - 1];
+        var employee    = rowData[COL_PREV_EMPLOYEE - 1] || rowData[COL_EMPLOYEE - 1];
+        var folderUrl   = rowData[COL_FOLDER_URL    - 1];
+        if (employee) {
+          var employeeEmail = getEmployeeEmail(employee, ss);
+          var supData      = getSupervisorForEmployee_(employee, ss);
+          createOrUpdateClientEvents(
+            clientName, clientEmail, employeeEmail,
+            rowData[COL_DATE_ZAKAT - 1],
+            rowData[COL_DATE_TAX   - 1],
+            folderUrl,
+            supData ? supData.email : ''
+          );
+        }
+      } catch (calErr) {
+        Logger.log('admin.editClient calendar refresh failed: ' + calErr.message);
+      }
+    }
+
+    return ok_({ row: row });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleAdminAssignEmployee_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var row      = parseInt(body.row || 0);
+  var employee = String(body.employee || '').trim();
+  if (!row || row < 2) return err_('row required (>=2)');
+  if (!employee) return err_('employee required (use admin.unassignEmployee to clear)');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return err_('server busy, please retry', 503);
+  try {
+    var ss    = adminSpreadsheet_();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (!sheet) return err_('customers sheet not found', 500);
+    if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+    // Write the employee cell first so the helper sees the new value
+    sheet.getRange(row, COL_EMPLOYEE).setValue(employee);
+    SpreadsheetApp.flush();
+
+    try {
+      assignEmployeeToClient_(sheet, ss, row, employee, /*interactive=*/false);
+    } catch (assignErr) {
+      // assignEmployeeToClient_ already reverted COL_EMPLOYEE on folder failure
+      Logger.log('admin.assignEmployee failed: ' + assignErr.message);
+      return err_('فشل التعيين: ' + assignErr.message, 500);
+    }
+    return ok_({ row: row, employee: employee });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── Unassign employee ────────────────────────────────────────
+
+function handleAdminUnassignEmployee_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var row = parseInt(body.row || 0);
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return err_('server busy, please retry', 503);
+  try {
+    var ss    = adminSpreadsheet_();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (!sheet) return err_('customers sheet not found', 500);
+    if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+    sheet.getRange(row, COL_EMPLOYEE).setValue('');
+    SpreadsheetApp.flush();
+    unassignEmployeeFromClient_(sheet, ss, row);
+    return ok_({ row: row });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── Delete client (full cleanup) ─────────────────────────────
+
+// ── Deactivate / Reactivate client ─────────────────────────────
+// Sets COL_IS_ACTIVE to false (deactivate) or true (reactivate).
+// Deactivated clients: upload processing skipped, submitDay blocked.
+// Their Drive folder remains intact so results are still accessible.
+
+function handleAdminSetClientActive_(body, caller, active) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var row = parseInt(body.row || 0);
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return err_('server busy, please retry', 503);
+  try {
+    var ss    = adminSpreadsheet_();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (!sheet) return err_('customers sheet not found', 500);
+    if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+    // Read client data before changing the flag
+    var rowData     = sheet.getRange(row, 1, 1, COL_IS_ACTIVE).getValues()[0];
+    var clientEmail = rowData[COL_EMAIL     - 1] || '';
+    var folderId    = rowData[COL_FOLDER_ID - 1] || '';
+
+    sheet.getRange(row, COL_IS_ACTIVE).setValue(active);
+    SpreadsheetApp.flush();
+
+    // Update the uploads folder Drive permission: writer (active) ↔ reader (deactivated)
+    if (folderId && clientEmail) {
+      try {
+        setClientUploadPermission_(folderId, clientEmail, active ? 'writer' : 'reader');
+      } catch (permErr) {
+        Logger.log('setClientUploadPermission_ error: ' + permErr.message);
+        // Non-fatal — sheet flag already saved
+      }
+    }
+
+    return ok_({ row: row, isActive: active });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleAdminDeleteClient_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var row = parseInt(body.row || 0);
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return err_('server busy, please retry', 503);
+  try {
+    var ss    = adminSpreadsheet_();
+    var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (!sheet) return err_('customers sheet not found', 500);
+    if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+    try {
+      deleteClientCompletely_(sheet, ss, row);
+    } catch (delErr) {
+      return err_('فشل الحذف: ' + delErr.message, 500);
+    }
+    return ok_({ row: row });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── Add person (employee or supervisor) ──────────────────────
+
+function handleAdminAddPerson_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var kind  = String(body.kind || '').toLowerCase(); // 'employee' | 'supervisor'
+  var name  = String(body.name  || '').trim();
+  var email = String(body.email || '').trim();
+  var phone = String(body.phone || '').trim();
+  var job   = String(body.job   || '').trim();
+
+  if (kind !== 'employee' && kind !== 'supervisor') return err_('kind must be employee|supervisor');
+  if (!name)  return err_('name required');
+  if (!email) return err_('email required');
+
+  var ss        = adminSpreadsheet_();
+  var sheetName = (kind === 'employee') ? EMPLOYEES_SHEET_NAME : SUPERVISORS_SHEET_NAME;
+  var sheet     = ss.getSheetByName(sheetName);
+  if (!sheet) return err_(sheetName + ' sheet not found', 500);
+
+  // Reject duplicates by email
+  if (sheet.getLastRow() > 1) {
+    var emailCol = (kind === 'employee') ? COL_EMP_EMAIL : COL_SUP_EMAIL;
+    var existing = sheet.getRange(2, emailCol, sheet.getLastRow() - 1, 1).getValues();
+    var lc = email.toLowerCase();
+    for (var i = 0; i < existing.length; i++) {
+      if (String(existing[i][0] || '').toLowerCase().trim() === lc) {
+        return err_('شخص بنفس البريد موجود بالفعل', 409);
+      }
+    }
+  }
+
+  if (kind === 'employee') {
+    var supervisor = String(body.supervisor || '').trim();
+    var rowVals = [];
+    rowVals[COL_EMP_NAME       - 1] = name;
+    rowVals[COL_EMP_JOB        - 1] = job;
+    rowVals[COL_EMP_EMAIL      - 1] = email;
+    rowVals[COL_EMP_PHONE      - 1] = phone;
+    rowVals[COL_EMP_SUPERVISOR - 1] = supervisor;
+    // Pad to 7 columns
+    for (var k = 0; k < 7; k++) if (rowVals[k] === undefined) rowVals[k] = '';
+    sheet.appendRow(rowVals);
+  } else {
+    var rowVals2 = [];
+    rowVals2[COL_SUP_NAME  - 1] = name;
+    rowVals2[COL_SUP_JOB   - 1] = job;
+    rowVals2[COL_SUP_EMAIL - 1] = email;
+    rowVals2[COL_SUP_PHONE - 1] = phone;
+    for (var k2 = 0; k2 < 5; k2++) if (rowVals2[k2] === undefined) rowVals2[k2] = '';
+    sheet.appendRow(rowVals2);
+  }
+  SpreadsheetApp.flush();
+  return ok_({ kind: kind, row: sheet.getLastRow() });
+}
+
+// ── Edit person ──────────────────────────────────────────────
+
+function handleAdminEditPerson_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var kind = String(body.kind || '').toLowerCase();
+  var row  = parseInt(body.row || 0);
+  if (kind !== 'employee' && kind !== 'supervisor') return err_('kind must be employee|supervisor');
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  var ss        = adminSpreadsheet_();
+  var sheetName = (kind === 'employee') ? EMPLOYEES_SHEET_NAME : SUPERVISORS_SHEET_NAME;
+  var sheet     = ss.getSheetByName(sheetName);
+  if (!sheet) return err_(sheetName + ' sheet not found', 500);
+  if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+  var fields = body.fields || {};
+  var colMap = (kind === 'employee') ? {
+    name:       COL_EMP_NAME,
+    job:        COL_EMP_JOB,
+    email:      COL_EMP_EMAIL,
+    phone:      COL_EMP_PHONE,
+    supervisor: COL_EMP_SUPERVISOR
+  } : {
+    name:  COL_SUP_NAME,
+    job:   COL_SUP_JOB,
+    email: COL_SUP_EMAIL,
+    phone: COL_SUP_PHONE
+  };
+
+  Object.keys(fields).forEach(function(k) {
+    if (colMap[k] !== undefined) {
+      sheet.getRange(row, colMap[k]).setValue(String(fields[k] || ''));
+    }
+  });
+  SpreadsheetApp.flush();
+  return ok_({ kind: kind, row: row });
+}
+
+// ── Delete person (guarded) ──────────────────────────────────
+
+function handleAdminDeletePerson_(body, caller) {
+  try { requireAdmin_(caller); } catch (ex) { return adminErr_(ex); }
+
+  var kind = String(body.kind || '').toLowerCase();
+  var row  = parseInt(body.row || 0);
+  if (kind !== 'employee' && kind !== 'supervisor') return err_('kind must be employee|supervisor');
+  if (!row || row < 2) return err_('row required (>=2)');
+
+  var ss        = adminSpreadsheet_();
+  var sheetName = (kind === 'employee') ? EMPLOYEES_SHEET_NAME : SUPERVISORS_SHEET_NAME;
+  var sheet     = ss.getSheetByName(sheetName);
+  if (!sheet) return err_(sheetName + ' sheet not found', 500);
+  if (row > sheet.getLastRow()) return err_('row out of range', 404);
+
+  var nameCol  = (kind === 'employee') ? COL_EMP_NAME : COL_SUP_NAME;
+  var personName = String(sheet.getRange(row, nameCol).getValue() || '').trim();
+  if (!personName) return err_('person row is empty', 404);
+
+  // Guard: check active assignments
+  var blockers = [];
+  if (kind === 'employee') {
+    var custSheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+    if (custSheet && custSheet.getLastRow() > 1) {
+      var data = custSheet.getDataRange().getValues();
+      var lc   = personName.toLowerCase().trim();
+      for (var i = 1; i < data.length; i++) {
+        var assigned = String(data[i][COL_EMPLOYEE - 1] || '').toLowerCase().trim();
+        if (assigned === lc) blockers.push(data[i][COL_NAME - 1] || ('row ' + (i + 1)));
+      }
+    }
+  } else {
+    var empSheet = ss.getSheetByName(EMPLOYEES_SHEET_NAME);
+    if (empSheet && empSheet.getLastRow() > 1) {
+      var data2 = empSheet.getDataRange().getValues();
+      var lc2   = personName.toLowerCase().trim();
+      for (var j = 1; j < data2.length; j++) {
+        var sup = String(data2[j][COL_EMP_SUPERVISOR - 1] || '').toLowerCase().trim();
+        if (sup === lc2) blockers.push(data2[j][COL_EMP_NAME - 1] || ('row ' + (j + 1)));
+      }
+    }
+  }
+
+  if (blockers.length > 0) {
+    return err_('لا يمكن الحذف — لديه ارتباطات نشطة: ' + blockers.join('، '), 409);
+  }
+
+  sheet.deleteRow(row);
+  SpreadsheetApp.flush();
+  return ok_({ kind: kind, row: row, name: personName });
 }

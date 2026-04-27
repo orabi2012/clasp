@@ -215,6 +215,39 @@ function assignEmployeePermissions(clientFolderId, employeeEmail) {
   }
 }
 
+/**
+ * Changes the client's permission on their uploads folder.
+ * role: 'writer' = active (can upload), 'reader' = deactivated (view only).
+ * Uses Drive Advanced Service to suppress notification emails.
+ */
+function setClientUploadPermission_(clientFolderId, clientEmail, role) {
+  var clientFolder = DriveApp.getFolderById(clientFolderId);
+  var uploadsIter  = clientFolder.getFoldersByName(FOLDER_UPLOADS);
+  if (!uploadsIter.hasNext()) {
+    Logger.log('setClientUploadPermission_: no uploads folder found for ' + clientFolderId);
+    return;
+  }
+  var uploadsFolderId = uploadsIter.next().getId();
+
+  // Remove existing permission for this email (both editor and viewer), then re-grant
+  // with the correct role — no notification email via Drive Advanced Service.
+  var permsList = Drive.Permissions.list(uploadsFolderId,
+    { fields: 'permissions(id,emailAddress,role)', supportsAllDrives: true });
+  if (permsList.permissions) {
+    for (var i = 0; i < permsList.permissions.length; i++) {
+      var p = permsList.permissions[i];
+      if ((p.emailAddress || '').toLowerCase() === clientEmail.toLowerCase()) {
+        Drive.Permissions.remove(uploadsFolderId, p.id, { supportsAllDrives: true });
+        Utilities.sleep(300);
+        break;
+      }
+    }
+  }
+
+  drivePermCreate_({ role: role, type: 'user', emailAddress: clientEmail }, uploadsFolderId);
+  Logger.log('setClientUploadPermission_: ' + clientEmail + ' → ' + role + ' on uploads of ' + clientFolderId);
+}
+
 function removeEmployeePermissions(clientFolderId, employeeEmail) {
   const clientFolder = DriveApp.getFolderById(clientFolderId);
 
@@ -522,4 +555,58 @@ function getOrCreateDayFolder_(stageFolder, date) {
   const monthFolder = getOrCreateSubfolder_(yearFolder,  MONTH_NAMES[month]);
   const dayFolder   = getOrCreateSubfolder_(monthFolder, String(day).padStart(2, '0'));
   return dayFolder;
+}
+
+// ── Client deletion (full cleanup) ────────────────────────────
+
+/**
+ * Permanently deletes a client: revokes the assigned employee's permissions,
+ * removes their shortcut, clears any open workflow rows, permanently removes
+ * the client folder from Drive, then deletes the customers-sheet row.
+ * Throws on hard failure (Drive folder removal).
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet  customers sheet
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} source  spreadsheet (for lookups)
+ * @param {number} editedRow  1-based row index in customers sheet
+ */
+function deleteClientCompletely_(sheet, source, editedRow) {
+  const rowData      = sheet.getRange(editedRow, 1, 1, COL_PREV_EMPLOYEE).getValues()[0];
+  const folderId     = rowData[COL_FOLDER_ID     - 1];
+  const clientName   = rowData[COL_NAME          - 1];
+  const empNow       = rowData[COL_EMPLOYEE      - 1];
+  const empPrev      = rowData[COL_PREV_EMPLOYEE - 1];
+  const empName      = empNow || empPrev || '';
+
+  // 1. Revoke employee permissions + remove their shortcut
+  if (empName) {
+    const empEmail = getEmployeeEmail(empName, source);
+    if (empEmail && folderId) {
+      try { removeEmployeePermissions(folderId, empEmail); }
+      catch (err) { Logger.log('deleteClientCompletely_: revoke perms: ' + err.message); }
+    }
+    try { removeClientShortcutFromEmployee(empName, clientName); }
+    catch (err) { Logger.log('deleteClientCompletely_: remove shortcut: ' + err.message); }
+  }
+
+  // 2. Clear any open workflow rows referencing this client
+  if (folderId) {
+    try { wfPatchOpenRowsByEmp_(folderId, '', '', '', ''); }
+    catch (err) { Logger.log('deleteClientCompletely_: wfPatch: ' + err.message); }
+  }
+
+  // 3. Permanently remove the Drive folder (and ALL its contents)
+  if (folderId) {
+    try {
+      withDriveRetry_(function() { Drive.Files.remove(folderId); }, 3);
+      Logger.log('deleteClientCompletely_: removed folder ' + folderId);
+    } catch (err) {
+      Logger.log('deleteClientCompletely_: folder removal FAILED: ' + err.message);
+      throw new Error('Failed to remove client folder from Drive: ' + err.message);
+    }
+  }
+
+  // 4. Delete the customers-sheet row
+  sheet.deleteRow(editedRow);
+  SpreadsheetApp.flush();
+  Logger.log('deleteClientCompletely_: deleted row ' + editedRow + ' (' + clientName + ')');
 }

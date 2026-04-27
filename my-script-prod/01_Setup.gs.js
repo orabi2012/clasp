@@ -32,6 +32,7 @@ const COL_FOLDER_URL     = 13; // M — client folder URL
 const COL_FOLDER_ID      = 14; // N — client folder ID
 const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
 const COL_TAX_TYPE       = 16; // P — tax declaration type (Monthly/Quarter)
+const COL_IS_ACTIVE      = 17; // Q — active flag (TRUE or blank = active; FALSE = deactivated)
 const COL_DATE_TAX       = 9;  // I — next tax declaration date
 const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
 
@@ -167,7 +168,7 @@ function setupHeaders() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
 
-  const NUM_COLS = 16;
+  const NUM_COLS = 17;
   const headerRow = sheet.getRange(1, 1, 1, NUM_COLS);
 
   // ── Write header labels ───────────────────────────────────
@@ -187,7 +188,8 @@ function setupHeaders() {
     'folder_url',        // M - COL_FOLDER_URL
     'folder_id',         // N - COL_FOLDER_ID
     'prev_employee',     // O - COL_PREV_EMPLOYEE
-    'tax_type'           // P - COL_TAX_TYPE
+    'tax_type',          // P - COL_TAX_TYPE
+    'is_active'          // Q - COL_IS_ACTIVE
   ]]);
 
   // ── Header row styling ────────────────────────────────────
@@ -246,6 +248,10 @@ function setupHeaders() {
     .setFontColor('#1967d2')
     .setHorizontalAlignment('center')
     .setFontSize(10);
+
+  // ── Checkbox for is_active column (Q) ────────────────────
+  sheet.getRange(2, COL_IS_ACTIVE, lastRow, 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
 
   Logger.log('Headers updated');
 }

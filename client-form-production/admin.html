@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة الإدارة</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGSI()"></script>
+
+<style>
+  :root { --brand:#1e3a8a; --brand-2:#2563eb; }
+  body { font-family:'Cairo',sans-serif; background:#eef2f9; color:#212529; }
+  .admin-card { max-width:1200px; margin:1.5rem auto; border-radius:16px; overflow:hidden; box-shadow:0 6px 32px rgba(0,0,0,.08); background:#fff; }
+  .admin-header {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    color:#fff; padding:1.5rem 2rem; position:relative; text-align:center;
+  }
+  .admin-header h1 { font-size:1.4rem; font-weight:700; margin:0; }
+  .admin-header p { font-size:.85rem; opacity:.9; margin:.25rem 0 0; }
+  .user-chip {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(255,255,255,.18); border-radius:20px; padding:5px 14px;
+    font-size:.82rem; position:absolute; top:14px; left:14px;
+  }
+  .role-tag { font-size:.68rem; background:rgba(255,255,255,.28); border-radius:10px; padding:2px 8px; }
+  .admin-body { padding:1.5rem 2rem 2rem; }
+
+  .nav-tabs .nav-link {
+    font-family:'Cairo',sans-serif; font-weight:600; color:#6c757d;
+    border:none; border-bottom:3px solid transparent;
+  }
+  .nav-tabs .nav-link.active {
+    color:var(--brand); background:transparent; border-bottom-color:var(--brand);
+  }
+
+  table.admin-table th { font-size:.78rem; color:#6c757d; font-weight:600; }
+  table.admin-table td { font-size:.85rem; vertical-align:middle; }
+
+  .btn-action { font-size:.78rem; font-weight:600; padding:4px 12px; border-radius:8px; }
+
+  #loginSection, #loadingSection, #unauthorizedSection { padding:3rem 2rem; text-align:center; }
+
+  .toast-host {
+    position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    z-index:9999; min-width:280px; max-width:90%;
+  }
+  .toast-msg {
+    background:#fff; border-radius:10px; padding:12px 18px; margin-bottom:8px;
+    box-shadow:0 4px 18px rgba(0,0,0,.15); font-size:.88rem;
+    border-left:4px solid var(--brand);
+  }
+  .toast-msg.err { border-left-color:#dc3545; color:#842029; }
+  .toast-msg.ok  { border-left-color:#198754; color:#0f5132; }
+
+  .row-busy { opacity:.5; pointer-events:none; }
+  .inline-spin {
+    display:inline-block; width:14px; height:14px; border:2px solid #ccc;
+    border-top-color:var(--brand); border-radius:50%;
+    animation: spin .7s linear infinite; vertical-align:middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .filter-bar { background:#f8f9fa; border-radius:10px; padding:.7rem 1rem; margin-bottom:1rem; }
+  .add-form { background:#eaf0fb; border-radius:10px; padding:1rem 1.25rem; margin-bottom:1rem; }
+  .add-form .form-control, .add-form .form-select { font-size:.85rem; }
+</style>
+</head>
+<body>
+
+<div class="toast-host" id="toastHost"></div>
+
+<div class="admin-card">
+
+  <div class="admin-header">
+    <div id="userChip" class="user-chip" style="display:none;">
+      <span id="chipName"></span>
+      <span class="role-tag">Admin</span>
+      <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.85);font-size:.72rem;margin-inline-start:6px;">خروج</a>
+    </div>
+    <h1>لوحة الإدارة</h1>
+    <p>إدارة العملاء والموظفين والمشرفين</p>
+  </div>
+
+  <!-- Login -->
+  <div id="loginSection">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔐</div>
+    <h5 style="color:#2d3748;font-weight:700;">تسجيل الدخول</h5>
+    <p class="text-muted" style="font-size:.9rem;">استخدم حساب Google الخاص بك</p>
+    <div style="display:flex;justify-content:center;margin-top:1.5rem;">
+      <div id="googleSignInBtn"></div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingSection" style="display:none;text-align:center;padding:3rem 2rem;">
+    <div class="spinner-border" style="color:var(--brand);width:2.5rem;height:2.5rem;" role="status"></div>
+    <p class="mt-3 text-muted">جارٍ التحقق…</p>
+  </div>
+
+  <!-- Unauthorized -->
+  <div id="unauthorizedSection" style="display:none;">
+    <div style="font-size:2.5rem;">🚫</div>
+    <h5 style="color:#dc3545;margin-top:.75rem;">غير مصرح لك بالدخول</h5>
+    <p class="text-muted mt-2">بريدك الإلكتروني غير مدرج في قائمة الإدارة.</p>
+    <button type="button" class="btn btn-outline-secondary mt-3 px-4" onclick="doLogout()">تجربة بريد آخر</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="admin-body" style="display:none;">
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-tab="clients" onclick="switchTab('clients')">العملاء</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="people" onclick="switchTab('people')">الموظفون والمشرفون</button></li>
+    </ul>
+
+    <!-- ── Clients tab ───────────────────────────────────── -->
+    <div id="tab-clients">
+      <div class="filter-bar d-flex gap-2 align-items-center flex-wrap">
+        <input id="clientSearch" class="form-control form-control-sm" style="max-width:280px;" placeholder="بحث (اسم / بريد / موظف)" oninput="renderClients()">
+        <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="loadClients()">تحديث</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover admin-table">
+          <thead>
+            <tr>
+              <th>اسم العميل</th>
+              <th>البريد</th>
+              <th>الجوال</th>
+              <th>الحالة</th>
+              <th>الموظف الحالي</th>
+              <th>تغيير الموظف</th>
+              <th>المجلد</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="clientsBody">
+            <tr><td colspan="8" class="text-center text-muted py-4">جارٍ التحميل…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── People tab ────────────────────────────────────── -->
+    <div id="tab-people" style="display:none;">
+
+      <h6 class="mt-2" style="font-weight:700;color:var(--brand);">الموظفون</h6>
+      <div class="add-form">
+        <div class="row g-2 align-items-end">
+          <div class="col"><input id="newEmpName" class="form-control" placeholder="الاسم"></div>
+          <div class="col"><input id="newEmpEmail" class="form-control" placeholder="البريد"></div>
+          <div class="col"><input id="newEmpPhone" class="form-control" placeholder="الجوال"></div>
+          <div class="col"><input id="newEmpJob" class="form-control" placeholder="الوظيفة"></div>
+          <div class="col"><select id="newEmpSupervisor" class="form-select"><option value="">-- المشرف --</option></select></div>
+          <div class="col-auto"><button class="btn btn-success btn-sm btn-action" onclick="addPerson('employee')">+ إضافة</button></div>
+        </div>
+      </div>
+      <div class="table-responsive mb-4">
+        <table class="table table-hover admin-table">
+          <thead><tr>
+            <th>الاسم</th><th>البريد</th><th>الجوال</th><th>الوظيفة</th><th>المشرف</th><th>إجراء</th>
+          </tr></thead>
+          <tbody id="empsBody"></tbody>
+        </table>
+      </div>
+
+      <h6 class="mt-2" style="font-weight:700;color:var(--brand);">المشرفون</h6>
+      <div class="add-form">
+        <div class="row g-2 align-items-end">
+          <div class="col"><input id="newSupName" class="form-control" placeholder="الاسم"></div>
+          <div class="col"><input id="newSupEmail" class="form-control" placeholder="البريد"></div>
+          <div class="col"><input id="newSupPhone" class="form-control" placeholder="الجوال"></div>
+          <div class="col"><input id="newSupJob" class="form-control" placeholder="الوظيفة"></div>
+          <div class="col-auto"><button class="btn btn-success btn-sm btn-action" onclick="addPerson('supervisor')">+ إضافة</button></div>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover admin-table">
+          <thead><tr>
+            <th>الاسم</th><th>البريد</th><th>الجوال</th><th>الوظيفة</th><th>إجراء</th>
+          </tr></thead>
+          <tbody id="supsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Same web app + GIS client used by workflow.html
+  const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbxn2uct1ot2xn3zP5MVPTj4D330qoe5aaIWXUHG78CBN6QNByl_s5uQ4ApTj3xn3dTT/exec';
+  const GIS_CLIENT_ID = '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com';
+
+  let idToken = null;
+  let userInfo = null;
+  let clients = [];
+  let people = { employees: [], supervisors: [] };
+
+  // ── GIS sign-in ─────────────────────────────────────────────
+  function initGSI() {
+    if (!GIS_CLIENT_ID) { showToast('GIS Client ID غير مضبوط في Script Properties', 'err'); return; }
+    google.accounts.id.initialize({
+      client_id: GIS_CLIENT_ID,
+      callback: onCredential,
+      auto_select: true,
+      use_fedcm_for_prompt: true
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('googleSignInBtn'),
+      { type:'standard', theme:'outline', size:'large', text:'signin_with', locale:'ar' }
+    );
+  }
+
+  function onCredential(resp) {
+    idToken = resp.credential;
+    show('loginSection', false);
+    show('loadingSection', true);
+    apiGet('admin.me').then(function(r) {
+      if (!r.ok) { show('loadingSection', false); show('unauthorizedSection', true); return; }
+      userInfo = r.data;
+      if (!userInfo.isAdmin) {
+        show('loadingSection', false); show('unauthorizedSection', true); return;
+      }
+      document.getElementById('chipName').textContent = userInfo.name || userInfo.email;
+      document.getElementById('userChip').style.display = 'inline-flex';
+      show('loadingSection', false); show('dashboard', true);
+      loadClients();
+      loadPeople();
+    }).catch(function(err) {
+      show('loadingSection', false); show('unauthorizedSection', true);
+      showToast('خطأ: ' + err.message, 'err');
+    });
+  }
+
+  function doLogout() {
+    idToken = null; userInfo = null;
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.disableAutoSelect();
+    }
+    document.getElementById('userChip').style.display = 'none';
+    show('dashboard', false); show('unauthorizedSection', false); show('loadingSection', false);
+    show('loginSection', true);
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function show(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; }
+
+  function showToast(msg, kind) {
+    var host = document.getElementById('toastHost');
+    var t = document.createElement('div');
+    t.className = 'toast-msg ' + (kind || 'ok');
+    t.textContent = msg;
+    host.appendChild(t);
+    setTimeout(function() { t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(function(){t.remove();},400); }, 3500);
+  }
+
+  function apiGet(action, params) {
+    var url = WEB_APP_URL + '?action=' + encodeURIComponent(action) + '&id_token=' + encodeURIComponent(idToken);
+    if (params) Object.keys(params).forEach(function(k) {
+      url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    });
+    return fetch(url).then(function(r){ return r.json(); });
+  }
+
+  function apiPost(action, body) {
+    body = body || {};
+    body.action = action;
+    body.id_token = idToken;
+    return fetch(WEB_APP_URL, {
+      method: 'POST',
+      // Apps Script web apps don't accept custom headers from cross-origin POST;
+      // sending as text/plain avoids the CORS preflight.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }).then(function(r){ return r.json(); });
+  }
+
+  // ── Tabs ────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.nav-link[data-tab]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    show('tab-clients', name === 'clients');
+    show('tab-people',  name === 'people');
+  }
+
+  // ── Clients ─────────────────────────────────────────────────
+  function loadClients() {
+    document.getElementById('clientsBody').innerHTML =
+      '<tr><td colspan="6" class="text-center text-muted py-4">جارٍ التحميل…</td></tr>';
+    apiGet('admin.listClients').then(function(r) {
+      if (!r.ok) { showToast(r.error || 'خطأ', 'err'); return; }
+      clients = r.data;
+      renderClients();
+    });
+  }
+
+  function renderClients() {
+    var q = (document.getElementById('clientSearch').value || '').toLowerCase().trim();
+    var body = document.getElementById('clientsBody');
+    var empOptions = '<option value="">-- إلغاء التعيين --</option>' +
+      people.employees.map(function(e){ return '<option value="'+escapeAttr(e.name)+'">'+escapeHtml(e.name)+'</option>'; }).join('');
+    body.innerHTML = '';
+    var filtered = clients.filter(function(c) {
+      if (!q) return true;
+      return (c.name+' '+c.email+' '+c.employee).toLowerCase().indexOf(q) !== -1;
+    });
+    if (filtered.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">لا توجد بيانات</td></tr>';
+      return;
+    }
+    filtered.forEach(function(c) {
+      var tr = document.createElement('tr');
+      if (!c.isActive) tr.classList.add('table-secondary');
+      tr.id = 'crow-' + c.row;
+      var statusBadge = c.isActive
+        ? '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#d1e7dd;color:#0f5132;">نشط</span>'
+        : '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#f8d7da;color:#842029;">غير نشط</span>';
+      var toggleBtn = c.isActive
+        ? '<button class="btn btn-sm btn-outline-warning btn-action" onclick="toggleClientActive(' + c.row + ', false)">تعطيل</button>'
+        : '<button class="btn btn-sm btn-outline-success btn-action" onclick="toggleClientActive(' + c.row + ', true)">تفعيل</button>';
+      tr.innerHTML =
+        '<td>' + escapeHtml(c.name) + '</td>' +
+        '<td style="direction:ltr;">' + escapeHtml(c.email) + '</td>' +
+        '<td style="direction:ltr;">' + escapeHtml(c.phone || '') + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td>' + (c.employee ? escapeHtml(c.employee) : '<span class="text-muted">— غير معيّن —</span>') + '</td>' +
+        '<td>' + (c.isActive
+          ? '<select class="form-select form-select-sm" style="min-width:160px;" onchange="changeEmployee(' + c.row + ', this.value)">' +
+              empOptions.replace('value="' + escapeAttr(c.employee) + '"', 'value="' + escapeAttr(c.employee) + '" selected') +
+              '</select>'
+          : '<span class="text-muted" style="font-size:.82rem;">— معطّل —</span>') + '</td>' +
+        '<td>' + (c.folderUrl ? '<a href="' + escapeAttr(c.folderUrl) + '" target="_blank">فتح</a>' : '<span class="text-muted">—</span>') + '</td>' +
+        '<td class="d-flex gap-1">' +
+          '<button class="btn btn-sm btn-outline-primary btn-action" onclick="openEditClient(' + c.row + ')">تعديل</button>' +
+          toggleBtn +
+        '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function changeEmployee(row, employee) {
+    var tr = document.getElementById('crow-' + row);
+    if (tr) tr.classList.add('row-busy');
+    var p = employee
+      ? apiPost('admin.assignEmployee',   { row: row, employee: employee })
+      : apiPost('admin.unassignEmployee', { row: row });
+    p.then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل', 'err'); }
+      else       { showToast(employee ? ('تم تعيين ' + employee) : 'تم إلغاء التعيين', 'ok'); }
+      loadClients();
+    }).catch(function(err) {
+      showToast('خطأ: ' + err.message, 'err');
+      if (tr) tr.classList.remove('row-busy');
+    });
+  }
+
+  function deleteClient(row, name) {
+    if (!confirm('سيتم حذف العميل "' + name + '" نهائياً مع مجلده. متابعة؟')) return;
+    apiPost('admin.deleteClient', { row: row }).then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل الحذف', 'err'); return; }
+      showToast('تم حذف ' + name, 'ok');
+      loadClients();
+    });
+  }
+
+  // ── Deactivate / Reactivate client ──
+  function toggleClientActive(row, active) {
+    var c = clients.find(function(x){ return x.row === row; });
+    var name = c ? c.name : '';
+    var msg  = active
+      ? ('تفعيل العميل "' + name + '"?')
+      : ('تعطيل العميل "' + name + '"؟ سيتوقف رفع الملفات الجديدة ولكن يبقى مجلد النتائج متاحاً.');
+    if (!confirm(msg)) return;
+    var action = active ? 'admin.reactivateClient' : 'admin.deactivateClient';
+    apiPost(action, { row: row }).then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل', 'err'); return; }
+      showToast(active ? 'تم التفعيل' : 'تم التعطيل', 'ok');
+      loadClients();
+    });
+  }
+
+  // ── Edit client (name / phone / dates / numbers — NOT email) ──
+  function openEditClient(row) {
+    var c = clients.find(function(x){ return x.row === row; });
+    if (!c) return;
+    document.getElementById('editClientRow').value           = c.row;
+    document.getElementById('editClientEmailReadOnly').value = c.email || '';
+    document.getElementById('editClientName').value          = c.name || '';
+    document.getElementById('editClientPhone').value         = c.phone || '';
+    document.getElementById('editClientTaxNumber').value     = c.taxNumber || '';
+    document.getElementById('editClientCrNumber').value      = c.crNumber || '';
+    document.getElementById('editClientFirstTaxDate').value  = c.firstTaxDate || '';
+    document.getElementById('editClientCrDate').value        = c.crDate || '';
+    document.getElementById('editClientNextTaxDate').value   = c.nextTaxDate || '';
+    document.getElementById('editClientNextZakatDate').value = c.nextZakatDate || '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editClientModal')).show();
+  }
+
+  function saveEditClient() {
+    var btn = document.getElementById('btnSaveEditClient');
+    var row = parseInt(document.getElementById('editClientRow').value, 10);
+    if (!row) return;
+    var payload = {
+      row:           row,
+      name:          document.getElementById('editClientName').value.trim(),
+      phone:         document.getElementById('editClientPhone').value.trim(),
+      taxNumber:     document.getElementById('editClientTaxNumber').value.trim(),
+      crNumber:      document.getElementById('editClientCrNumber').value.trim(),
+      firstTaxDate:  document.getElementById('editClientFirstTaxDate').value,
+      crDate:        document.getElementById('editClientCrDate').value,
+      nextTaxDate:   document.getElementById('editClientNextTaxDate').value,
+      nextZakatDate: document.getElementById('editClientNextZakatDate').value
+    };
+    if (!payload.name) { showToast('الاسم مطلوب', 'err'); return; }
+    btn.disabled = true;
+    apiPost('admin.editClient', payload).then(function(r) {
+      btn.disabled = false;
+      if (!r.ok) { showToast(r.error || 'فشل الحفظ', 'err'); return; }
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('editClientModal')).hide();
+      showToast('تم الحفظ', 'ok');
+      loadClients();
+    }).catch(function(err) {
+      btn.disabled = false;
+      showToast('خطأ: ' + err.message, 'err');
+    });
+  }
+
+  // ── People ──────────────────────────────────────────────────
+  function loadPeople() {
+    apiGet('admin.listPeople').then(function(r) {
+      if (!r.ok) { showToast(r.error || 'خطأ', 'err'); return; }
+      people = r.data;
+      renderPeople();
+      // Re-render clients to refresh the employee dropdowns
+      renderClients();
+    });
+  }
+
+  function renderPeople() {
+    // populate "new employee" supervisor dropdown
+    var supSelect = document.getElementById('newEmpSupervisor');
+    supSelect.innerHTML = '<option value="">-- المشرف --</option>' +
+      people.supervisors.map(function(s){ return '<option value="'+escapeAttr(s.name)+'">'+escapeHtml(s.name)+'</option>'; }).join('');
+
+    // employees table
+    var empBody = document.getElementById('empsBody');
+    if (!people.employees.length) {
+      empBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">لا يوجد موظفون</td></tr>';
+    } else {
+      empBody.innerHTML = '';
+      people.employees.forEach(function(p) {
+        var supOpts = '<option value="">— بدون —</option>' +
+          people.supervisors.map(function(s){
+            var sel = (s.name === p.supervisor) ? ' selected' : '';
+            return '<option value="' + escapeAttr(s.name) + '"' + sel + '>' + escapeHtml(s.name) + '</option>';
+          }).join('');
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.name)  + '" data-k="name"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.email) + '" data-k="email" style="direction:ltr;"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.phone) + '" data-k="phone" style="direction:ltr;"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.job)   + '" data-k="job"></td>' +
+          '<td><select class="form-select form-select-sm" data-k="supervisor">' + supOpts + '</select></td>' +
+          '<td>' +
+            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'employee\', ' + p.row + ', this)">حفظ</button>' +
+            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'employee\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">حذف</button>' +
+          '</td>';
+        empBody.appendChild(tr);
+      });
+    }
+
+    // supervisors table
+    var supBody = document.getElementById('supsBody');
+    if (!people.supervisors.length) {
+      supBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">لا يوجد مشرفون</td></tr>';
+    } else {
+      supBody.innerHTML = '';
+      people.supervisors.forEach(function(p) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.name)  + '" data-k="name"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.email) + '" data-k="email" style="direction:ltr;"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.phone) + '" data-k="phone" style="direction:ltr;"></td>' +
+          '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.job)   + '" data-k="job"></td>' +
+          '<td>' +
+            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'supervisor\', ' + p.row + ', this)">حفظ</button>' +
+            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'supervisor\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">حذف</button>' +
+          '</td>';
+        supBody.appendChild(tr);
+      });
+    }
+  }
+
+  function addPerson(kind) {
+    var pref = kind === 'employee' ? 'newEmp' : 'newSup';
+    var body = {
+      kind: kind,
+      name:  val(pref + 'Name'),
+      email: val(pref + 'Email'),
+      phone: val(pref + 'Phone'),
+      job:   val(pref + 'Job')
+    };
+    if (kind === 'employee') body.supervisor = val('newEmpSupervisor');
+    if (!body.name || !body.email) { showToast('الاسم والبريد مطلوبان', 'err'); return; }
+
+    apiPost('admin.addPerson', body).then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل', 'err'); return; }
+      showToast('تمت الإضافة', 'ok');
+      // clear inputs
+      ['Name','Email','Phone','Job'].forEach(function(s){ document.getElementById(pref+s).value=''; });
+      if (kind === 'employee') document.getElementById('newEmpSupervisor').value = '';
+      loadPeople();
+    });
+  }
+
+  function savePerson(kind, row, btn) {
+    var tr = btn.closest('tr');
+    var fields = {};
+    tr.querySelectorAll('[data-k]').forEach(function(el) { fields[el.dataset.k] = el.value; });
+    apiPost('admin.editPerson', { kind: kind, row: row, fields: fields }).then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل', 'err'); return; }
+      showToast('تم الحفظ', 'ok');
+      loadPeople();
+    });
+  }
+
+  function delPerson(kind, row, name) {
+    if (!confirm('حذف "' + name + '"؟')) return;
+    apiPost('admin.deletePerson', { kind: kind, row: row }).then(function(r) {
+      if (!r.ok) { showToast(r.error || 'فشل', 'err'); return; }
+      showToast('تم الحذف', 'ok');
+      loadPeople();
+    });
+  }
+
+  // ── Utils ───────────────────────────────────────────────────
+  function val(id) { return (document.getElementById(id).value || '').trim(); }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+</script>
+
+<!-- Edit Client modal ─────────────────────────────────────── -->
+<div class="modal fade" id="editClientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="font-family:'Cairo',sans-serif;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;">
+        <h5 class="modal-title">تعديل بيانات العميل</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editClientRow">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">البريد الإلكتروني (غير قابل للتعديل)</label>
+            <input id="editClientEmailReadOnly" class="form-control" style="direction:ltr;background:#f1f3f5;" readonly>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">اسم العميل <span class="text-danger">*</span></label>
+            <input id="editClientName" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">رقم الجوال</label>
+            <input id="editClientPhone" class="form-control" style="direction:ltr;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">الرقم الضريبي</label>
+            <input id="editClientTaxNumber" class="form-control" style="direction:ltr;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">الرقم المميز (السجل التجاري)</label>
+            <input id="editClientCrNumber" class="form-control" style="direction:ltr;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">تاريخ أول إقرار ضريبي</label>
+            <input type="date" id="editClientFirstTaxDate" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">تاريخ السجل التجاري</label>
+            <input type="date" id="editClientCrDate" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">تاريخ الإقرار الضريبي القادم</label>
+            <input type="date" id="editClientNextTaxDate" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;">تاريخ الإقرار الزكوي القادم</label>
+            <input type="date" id="editClientNextZakatDate" class="form-control">
+          </div>
+        </div>
+        <p class="text-muted mt-3" style="font-size:.78rem;">
+          ملاحظة: عند تغيير تاريخ الإقرار الضريبي أو الزكوي سيتم تحديث أحداث التقويم تلقائياً.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="button" id="btnSaveEditClient" class="btn" style="background:#1e3a8a;color:#fff;" onclick="saveEditClient()">حفظ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

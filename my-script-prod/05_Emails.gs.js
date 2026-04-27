@@ -291,7 +291,8 @@ function sendNewClientAdminEmail_(data, lang) {
     .split(',').map(function(e) { return e.trim(); }).filter(Boolean);
   if (!adminEmails.length) return;
 
-  const isEn    = lang === 'en';
+  const isEn     = lang === 'en';
+  const portalUrl = getPortalUrl_();
   const subject = isEn
     ? 'New Client Registered: ' + data.name
     : 'عميل جديد: ' + data.name;
@@ -310,6 +311,12 @@ function sendNewClientAdminEmail_(data, lang) {
         [isEn ? 'CR Number'  : 'الرقم المميز',       data.crNumber  || '—'],
         [isEn ? 'Language'   : 'اللغة',              data.lang      || 'ar']
       ])}
+
+      ${portalUrl ? `<div style="text-align:center;margin:14px 0 4px;">
+        <a href="${portalUrl}/admin.html" style="display:inline-block;background:#1e3a8a;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+          ${isEn ? 'Open Admin Dashboard →' : 'افتح لوحة الإدارة ←'}
+        </a>
+      </div>` : ''}
     </div>
     ${emailFooter_(lang)}`;
 

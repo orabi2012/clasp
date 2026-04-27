@@ -18,51 +18,80 @@ function onEmployeeAssigned(e) {
   const editedRow = e.range.getRow();
   if (editedRow <= 1 || editedCol !== COL_EMPLOYEE) return;
 
+  const newEmployee = sheet.getRange(editedRow, COL_EMPLOYEE).getValue();
+
+  if (!newEmployee) {
+    unassignEmployeeFromClient_(sheet, e.source, editedRow);
+  } else {
+    assignEmployeeToClient_(sheet, e.source, editedRow, newEmployee, /*interactive=*/true);
+  }
+}
+
+/**
+ * Removes the previously assigned employee's permissions/shortcut and clears
+ * workflow assignments. Reads COL_PREV_EMPLOYEE; assumes COL_EMPLOYEE is now empty.
+ * Safe to call from triggers OR portal/admin API.
+ */
+function unassignEmployeeFromClient_(sheet, source, editedRow) {
   const rowData      = sheet.getRange(editedRow, 1, 1, COL_PREV_EMPLOYEE).getValues()[0];
-  const newEmployee  = rowData[COL_EMPLOYEE      - 1];
+  const prevEmployee = rowData[COL_PREV_EMPLOYEE - 1];
+  const existingID   = rowData[COL_FOLDER_ID     - 1];
+  const clientName   = rowData[COL_NAME          - 1];
+
+  if (!prevEmployee) return;
+
+  const prevEmail = getEmployeeEmail(prevEmployee, source);
+
+  if (prevEmail && existingID) {
+    try { removeEmployeePermissions(existingID, prevEmail); } catch (err) {
+      Logger.log('Warning: revoke permissions: ' + err.message);
+    }
+  }
+
+  try { removeClientShortcutFromEmployee(prevEmployee, clientName); } catch (err) {
+    Logger.log('Warning: remove shortcut: ' + err.message);
+  }
+
+  sheet.getRange(editedRow, COL_PREV_EMPLOYEE).setValue('');
+  SpreadsheetApp.flush();
+
+  // Clear employee/supervisor on open workflow rows so the previous employee
+  // no longer sees this client's rows in their dashboard
+  try {
+    if (existingID) {
+      wfPatchOpenRowsByEmp_(existingID, '', '', '', '');
+    }
+  } catch (err) {
+    Logger.log('Warning: wfPatchOpenRowsByEmp_ on unassign: ' + err.message);
+  }
+
+  Logger.log('Unassigned ' + prevEmployee + ' from client: ' + clientName);
+}
+
+/**
+ * Performs the full employee assignment workflow: folder creation, permission
+ * grants, email notifications, calendar events, shortcut placement, etc.
+ * Assumes COL_EMPLOYEE has already been written. Safe to call from triggers
+ * OR portal/admin API.
+ *
+ * @param {boolean} interactive  If true, shows SpreadsheetApp.getUi() alerts on
+ *                               folder-creation failure (only safe inside the
+ *                               edit trigger). API callers should pass false;
+ *                               on failure the function reverts COL_EMPLOYEE
+ *                               and throws.
+ */
+function assignEmployeeToClient_(sheet, source, editedRow, newEmployee, interactive) {
+  const rowData      = sheet.getRange(editedRow, 1, 1, COL_PREV_EMPLOYEE).getValues()[0];
   const prevEmployee = rowData[COL_PREV_EMPLOYEE - 1];
   const existingID   = rowData[COL_FOLDER_ID     - 1];
   const clientName   = rowData[COL_NAME          - 1];
   const clientEmail  = rowData[COL_EMAIL         - 1];
 
-  // -- Un-assign --
-  if (!newEmployee) {
-    if (prevEmployee) {
-      const prevEmail = getEmployeeEmail(prevEmployee, e.source);
-
-      if (prevEmail && existingID) {
-        try { removeEmployeePermissions(existingID, prevEmail); } catch (err) {
-          Logger.log('Warning: revoke permissions: ' + err.message);
-        }
-      }
-
-      try { removeClientShortcutFromEmployee(prevEmployee, clientName); } catch (err) {
-        Logger.log('Warning: remove shortcut: ' + err.message);
-      }
-
-      sheet.getRange(editedRow, COL_PREV_EMPLOYEE).setValue('');
-      SpreadsheetApp.flush();
-
-      // Clear employee/supervisor on open workflow rows so the previous employee
-      // no longer sees this client's rows in their dashboard
-      try {
-        if (existingID) {
-          wfPatchOpenRowsByEmp_(existingID, '', '', '', '');
-        }
-      } catch (err) {
-        Logger.log('Warning: wfPatchOpenRowsByEmp_ on unassign: ' + err.message);
-      }
-
-      Logger.log('Unassigned ' + prevEmployee + ' from client: ' + clientName);
-    }
-    return;
-  }
-
   // -- 1. Get new employee email --
-  const newEmployeeEmail = getEmployeeEmail(newEmployee, e.source);
+  const newEmployeeEmail = getEmployeeEmail(newEmployee, source);
   if (!newEmployeeEmail) {
-    SpreadsheetApp.getUi().alert('Employee email not found: ' + newEmployee);
-    return;
+    if (interactive) SpreadsheetApp.getUi().alert('Employee email not found: ' + newEmployee);
+    throw new Error('Employee email not found: ' + newEmployee);
   }
 
   let folderId  = existingID;
@@ -82,18 +111,21 @@ function onEmployeeAssigned(e) {
       // Revert the employee cell back to what it was before
       sheet.getRange(editedRow, COL_EMPLOYEE).setValue(prevEmployee || '');
       SpreadsheetApp.flush();
-      SpreadsheetApp.getUi().alert(
-        'فشل إنشاء مجلد العميل بسبب خطأ في Google Drive.\n' +
-        'تم إلغاء التعيين. يرجى المحاولة مرة أخرى بعد قليل.\n\n' +
-        '(Error: ' + err.message + ')'
-      );
-      return;
+      if (interactive) {
+        SpreadsheetApp.getUi().alert(
+          'فشل إنشاء مجلد العميل بسبب خطأ في Google Drive.\n' +
+          'تم إلغاء التعيين. يرجى المحاولة مرة أخرى بعد قليل.\n\n' +
+          '(Error: ' + err.message + ')'
+        );
+        return;
+      }
+      throw err;
     }
   }
 
   // -- 3. Revoke previous employee access --
   if (prevEmployee && prevEmployee !== newEmployee) {
-    const prevEmail = getEmployeeEmail(prevEmployee, e.source);
+    const prevEmail = getEmployeeEmail(prevEmployee, source);
 
     if (prevEmail) {
       try { removeEmployeePermissions(folderId, prevEmail); } catch (err) {
@@ -117,11 +149,9 @@ function onEmployeeAssigned(e) {
   const clientFolder  = DriveApp.getFolderById(folderId);
   const uploadsUrl     = getSubfolderUrl_(clientFolder, FOLDER_UPLOADS,    folderUrl);
   const resultsUrl     = getSubfolderUrl_(clientFolder, FOLDER_RESULTS,    folderUrl);
-  const stageUrl       = getSubfolderUrl_(clientFolder, FOLDER_STAGE,      folderUrl);
   const guidelinesUrl  = getSubfolderUrl_(clientFolder, FOLDER_GUIDELINES, folderUrl);
 
-  const employeeData = getEmployeeData(newEmployee, e.source);
-  const supervisorData = getSupervisorForEmployee_(newEmployee, e.source);
+  const supervisorData = getSupervisorForEmployee_(newEmployee, source);
 
   // -- 6. Send emails --
   try {
@@ -151,7 +181,7 @@ function onEmployeeAssigned(e) {
 
   // -- 8. Add shortcut to employee folder --
   try {
-    addClientShortcutToEmployee(newEmployee, newEmployeeEmail, folderId, clientName, e.source);
+    addClientShortcutToEmployee(newEmployee, newEmployeeEmail, folderId, clientName, source);
   } catch (err) {
     Logger.log('Warning: add shortcut: ' + err.message);
   }
@@ -162,9 +192,8 @@ function onEmployeeAssigned(e) {
 
   // -- 10. Patch open workflow rows with new employee + supervisor --
   try {
-    const newSupData  = getSupervisorForEmployee_(newEmployee, e.source);
-    const newSupName  = newSupData ? newSupData.name  : '';
-    const newSupEmail = newSupData ? newSupData.email : '';
+    const newSupName  = supervisorData ? supervisorData.name  : '';
+    const newSupEmail = supervisorData ? supervisorData.email : '';
     wfPatchOpenRowsByEmp_(folderId, newEmployee, newEmployeeEmail, newSupName, newSupEmail);
   } catch (err) {
     Logger.log('Warning: wfPatchOpenRowsByEmp_: ' + err.message);

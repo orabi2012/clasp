@@ -19,8 +19,15 @@ function checkUploadsForNewFiles() {
     const clientName  = data[i][COL_NAME          - 1];
     const clientEmail = data[i][COL_EMAIL         - 1];
     const clientLang  = data[i][COL_LANG          - 1] || 'ar';
+    const isActive    = data[i][COL_IS_ACTIVE     - 1]; // FALSE = deactivated
 
     if (!folderId || !employee) continue;
+
+    // Skip deactivated clients — no new workflow rows should be created
+    if (isActive === false) {
+      Logger.log('[' + clientName + '] client is deactivated — skipping upload processing');
+      continue;
+    }
 
     try {
       const employeeEmail = getEmployeeEmail(employee, ss);
