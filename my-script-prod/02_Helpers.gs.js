@@ -73,9 +73,28 @@ function createClientFolder(clientName, clientEmail) {
   }
 
   const clientFolder = clientsFolder.createFolder(clientName);
-  // Skip stage/ deep structure — built later as a deferred step
-  copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE]);
-  // Ensure all required subfolders exist (in case template is missing any)
+  // Skip stage/ deep structure — built later as a deferred step.
+  // Skip help/ — will be added as a shortcut to the template's help folder.
+  copyFolderContents_(templateFolder, clientFolder, [FOLDER_STAGE, FOLDER_GUIDELINES]);
+
+  // Remove the empty help/ folder that copyFolderContents_ created (skip semantics),
+  // then add a shortcut to the template's help folder instead of duplicating its content.
+  const helpInClientIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
+  if (helpInClientIter.hasNext()) helpInClientIter.next().setTrashed(true);
+
+  const helpInTemplateIter = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
+  if (helpInTemplateIter.hasNext()) {
+    const helpTarget = helpInTemplateIter.next();
+    Drive.Files.create({
+      name:            FOLDER_GUIDELINES,
+      mimeType:        'application/vnd.google-apps.shortcut',
+      parents:         [clientFolder.getId()],
+      shortcutDetails: { targetId: helpTarget.getId() }
+    });
+  }
+
+  // Ensure all required subfolders exist (in case template is missing any).
+  // ensureFolders_ now skips names that already have a shortcut.
   ensureFolders_(clientFolder);
 
   const uploadsIter = clientFolder.getFoldersByName(FOLDER_UPLOADS);
@@ -93,11 +112,18 @@ function createClientFolder(clientName, clientEmail) {
       resultsIter.next().getId());
   }
 
-  const guidelinesIter = clientFolder.getFoldersByName(FOLDER_GUIDELINES);
-  if (clientEmail && guidelinesIter.hasNext()) {
-    Utilities.sleep(500);
-    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
-      guidelinesIter.next().getId());
+  // Grant read access on the template's help folder once per client (shortcut target).
+  if (clientEmail && helpInTemplateIter) {
+    const helpInTemplateIter2 = templateFolder.getFoldersByName(FOLDER_GUIDELINES);
+    if (helpInTemplateIter2.hasNext()) {
+      Utilities.sleep(500);
+      try {
+        drivePermCreate_({ role: 'reader', type: 'user', emailAddress: clientEmail },
+          helpInTemplateIter2.next().getId());
+      } catch (permErr) {
+        Logger.log('help folder perm grant failed for ' + clientEmail + ': ' + permErr.message);
+      }
+    }
   }
 
   return { folderId: clientFolder.getId(), folderUrl: clientFolder.getUrl() };

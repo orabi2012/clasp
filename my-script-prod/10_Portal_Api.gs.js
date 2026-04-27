@@ -132,7 +132,7 @@ function doGet(e) {
       case 'me':            return ok_(roleInfo);
       case 'listMyClients': return handleListMyClients_(roleInfo);
       case 'listRows':      return handleListRows_(params, roleInfo);
-      case 'listPending':   return handleListPending_(roleInfo);
+      case 'listPending':   return handleListPending_(params, roleInfo);
       case 'listAudit':     return handleListAudit_(params, roleInfo);
       // Write actions are POST-only — reject any GET attempt
       case 'setFinished':
@@ -372,9 +372,16 @@ function handleListRows_(params, roleInfo) {
   return ok_(wfPaginate_(rows, q, page, pageSize));
 }
 
-function handleListPending_(roleInfo) {
+function handleListPending_(params, roleInfo) {
   if (roleInfo.role !== 'supervisor') return err_('supervisor only', 403);
-  var rows = wfListBySupEmail_(roleInfo.email, null); // all statuses — supervisor sees full history
+  var showAll = String(params.all || '').toLowerCase() === 'true';
+
+  var rows;
+  if (showAll) {
+    rows = wfAllRows_(); // all employees, all statuses
+  } else {
+    rows = wfListBySupEmail_(roleInfo.email, null); // all statuses — supervisor sees full history
+  }
 
   // Group by clientFolderId
   var clientMap = {};
@@ -394,9 +401,8 @@ function handleListPending_(roleInfo) {
     clientMap[key].rows.push(r);
   });
 
-  // Also include customers assigned to this supervisor's employees that
-  // have no workflow rows yet (no files uploaded). This way every employee
-  // and every assigned client is visible even before any uploads.
+  // Also include customers that have no workflow rows yet.
+  // When showAll=true, include ALL customers; otherwise only those under this supervisor.
   var ssId2 = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
   var ss2   = ssId2 ? SpreadsheetApp.openById(ssId2) : SpreadsheetApp.getActiveSpreadsheet();
   var custSheet = ss2.getSheetByName(CUSTOMERS_SHEET_NAME);
@@ -404,15 +410,17 @@ function handleListPending_(roleInfo) {
     var custData  = custSheet.getDataRange().getValues();
     var supNameLc = (roleInfo.name || '').toLowerCase().trim();
 
-    // Build map: employee_name_lc -> {name, email} for employees under this supervisor
+    // Build employee lookup map
     var empNamesForSup = {};
     var empSheet2 = ss2.getSheetByName(EMPLOYEES_SHEET_NAME);
     if (empSheet2 && empSheet2.getLastRow() > 1) {
       var empData2 = empSheet2.getDataRange().getValues();
       for (var ei = 1; ei < empData2.length; ei++) {
         var thisSupName = String(empData2[ei][COL_EMP_SUPERVISOR - 1] || '').toLowerCase().trim();
-        if (thisSupName === supNameLc) {
-          empNamesForSup[String(empData2[ei][COL_EMP_NAME - 1] || '').toLowerCase().trim()] = {
+        var empNameLc   = String(empData2[ei][COL_EMP_NAME - 1] || '').toLowerCase().trim();
+        if (!empNameLc) continue;
+        if (showAll || thisSupName === supNameLc) {
+          empNamesForSup[empNameLc] = {
             name:  empData2[ei][COL_EMP_NAME  - 1] || '',
             email: empData2[ei][COL_EMP_EMAIL - 1] || ''
           };

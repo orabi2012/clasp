@@ -131,18 +131,27 @@ function ensureTemplateFolders() {
 
 /**
  * Creates any missing required subfolders inside the given folder.
+ * If a shortcut already exists with the same name, the folder is not created.
  * @param {GoogleAppsScript.Drive.Folder} parentFolder
  */
 function ensureFolders_(parentFolder) {
   for (var i = 0; i < REQUIRED_SUBFOLDERS.length; i++) {
     var name = REQUIRED_SUBFOLDERS[i];
     var iter = parentFolder.getFoldersByName(name);
-    if (!iter.hasNext()) {
-      parentFolder.createFolder(name);
-      Logger.log('Created subfolder: ' + name);
-    } else {
-      Logger.log('Already exists: ' + name);
+    if (iter.hasNext()) { Logger.log('Already exists: ' + name); continue; }
+
+    // Skip if a shortcut with the same name already exists (e.g. help → template)
+    var sameName = parentFolder.getFilesByName(name);
+    var hasShortcut = false;
+    while (sameName.hasNext()) {
+      if (sameName.next().getMimeType() === 'application/vnd.google-apps.shortcut') {
+        hasShortcut = true; break;
+      }
     }
+    if (hasShortcut) { Logger.log('Shortcut exists for: ' + name); continue; }
+
+    parentFolder.createFolder(name);
+    Logger.log('Created subfolder: ' + name);
   }
 }
 
