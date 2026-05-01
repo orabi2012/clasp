@@ -191,21 +191,30 @@ function drivePermCreate_(resource, fileId) {
   }
 }
 
-function assignEmployeePermissions(clientFolderId, employeeEmail) {
+function assignEmployeePermissions(clientFolderId, employeeEmail, supEmail) {
   const clientFolder = DriveApp.getFolderById(clientFolderId);
 
   // Root: reader only (employee navigates but cannot edit at root level)
   drivePermCreate_({ role: 'reader', type: 'user', emailAddress: employeeEmail }, clientFolderId);
   Utilities.sleep(300);
 
-  // stage & results: writer — uploads is intentionally excluded (files arrive via automation)
-  const writableFolders = [FOLDER_STAGE, FOLDER_RESULTS];
-  for (let i = 0; i < writableFolders.length; i++) {
-    const iter = clientFolder.getFoldersByName(writableFolders[i]);
-    if (iter.hasNext()) {
-      drivePermCreate_({ role: 'writer', type: 'user', emailAddress: employeeEmail }, iter.next().getId());
+  // stage: reader only — files are moved by automation; employee views only
+  // results: writer — employee uploads processed files here
+  const stageIter = clientFolder.getFoldersByName(FOLDER_STAGE);
+  if (stageIter.hasNext()) {
+    const stageFolderId = stageIter.next().getId();
+    drivePermCreate_({ role: 'reader', type: 'user', emailAddress: employeeEmail }, stageFolderId);
+    Utilities.sleep(300);
+    if (supEmail) {
+      drivePermCreate_({ role: 'reader', type: 'user', emailAddress: supEmail }, stageFolderId);
       Utilities.sleep(300);
     }
+  }
+
+  const resultsIter = clientFolder.getFoldersByName(FOLDER_RESULTS);
+  if (resultsIter.hasNext()) {
+    drivePermCreate_({ role: 'writer', type: 'user', emailAddress: employeeEmail }, resultsIter.next().getId());
+    Utilities.sleep(300);
   }
 
   // ارشادات هامة: reader only

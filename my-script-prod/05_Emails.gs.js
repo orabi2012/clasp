@@ -453,23 +453,16 @@ function sendDateReminder_(email, clientName, type, date, daysLeft, folderUrl, l
 // dayFolderUrl: direct link to the day folder in stage/
 // dateStr: formatted date string e.g. "22/04/2026"
 
-function sendUploadNotification(employeeEmail, employeeName, clientName, dayFolderUrl, files, dateStr, trackerUrl) {
+function sendUploadNotification(employeeEmail, employeeName, clientName, dayFolderUrl, files, dateStr, trackerUrl, supEmail) {
   const count   = files.length;
   const subject = 'ملفات جديدة بتاريخ ' + dateStr + ' — ' + clientName + ' (' + count + ')';
 
   let fileRows = '';
   for (let i = 0; i < files.length; i++) {
-    const f    = files[i];
-    const size = f.size < 1024    ? f.size + ' B'
-               : f.size < 1048576 ? Math.round(f.size / 1024) + ' KB'
-               : (f.size / 1048576).toFixed(1) + ' MB';
-    const bg   = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbfc';
     fileRows += `
       <tr style="background:${bg};">
-        <td style="padding:11px 12px;font-size:13px;word-break:break-word;">
-          <a href="${f.url}" style="color:#1a73e8;text-decoration:none;font-weight:600;">${f.name}</a>
-        </td>
-        <td style="padding:11px 12px;font-size:12px;color:#a0aec0;text-align:center;white-space:nowrap;">${size}</td>
+        <td style="padding:11px 14px;font-size:13px;color:#2d3748;word-break:break-word;">${esc_(files[i].name)}</td>
       </tr>`;
   }
 
@@ -482,11 +475,10 @@ function sendUploadNotification(employeeEmail, employeeName, clientName, dayFold
       </p>
 
       <div style="border-radius:8px;overflow:hidden;border:1px solid #e8edf2;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="background:#0d6b6e;padding:10px 14px;">
+          <p style="margin:0;font-size:13px;color:#ffffff;font-weight:700;">الملفات المستلمة</p>
+        </div>
         <table style="width:100%;border-collapse:collapse;">
-          <tr style="background:#f5f7fa;">
-            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#718096;font-weight:700;">اسم الملف</th>
-            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#718096;font-weight:700;">الحجم</th>
-          </tr>
           ${fileRows}
         </table>
       </div>
@@ -500,7 +492,9 @@ function sendUploadNotification(employeeEmail, employeeName, clientName, dayFold
     </div>
     ${emailFooter_('ar')}`;
 
-  GmailApp.sendEmail(employeeEmail, subject, '', { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' });
+  const emailOpts = { htmlBody: emailWrapper_(content, 'ar'), charset: 'UTF-8' };
+  if (supEmail) emailOpts.cc = supEmail;
+  GmailApp.sendEmail(employeeEmail, subject, '', emailOpts);
 }
 
 // -- sendFilesReceivedEmail_ ----------------------------------

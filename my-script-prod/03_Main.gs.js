@@ -140,7 +140,9 @@ function assignEmployeeToClient_(sheet, source, editedRow, newEmployee, interact
 
   // -- 4. Grant new employee access --
   try {
-    assignEmployeePermissions(folderId, newEmployeeEmail);
+    const supervisorData = getSupervisorForEmployee_(newEmployee, source);
+    const supEmail = supervisorData ? supervisorData.email : null;
+    assignEmployeePermissions(folderId, newEmployeeEmail, supEmail);
   } catch (err) {
     Logger.log('Warning: grant permissions: ' + err.message);
   }
