@@ -74,7 +74,7 @@ function checkUploadsForNewFiles() {
           name:        f.getName(),
           url:         f.getUrl(),
           size:        f.getSize(),
-          dateCreated: f.getLastUpdated()
+          dateCreated: f.getDateCreated()
         });
       }
 
@@ -90,7 +90,7 @@ function checkUploadsForNewFiles() {
 
       for (let fi = 0; fi < fileMetaList.length; fi++) {
         const meta       = fileMetaList[fi];
-        const uploadDate = meta.dateCreated;
+        const uploadDate = new Date(); // use today's date for stage folder bucketing
 
         try {
           // Ensure day folder exists

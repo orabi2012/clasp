@@ -499,7 +499,7 @@ function handleListPending_(params, roleInfo) {
 }
 
 function handleCheckUploads_(roleInfo) {
-  if (roleInfo.role !== 'supervisor') return err_('supervisor only', 403);
+  if (!roleInfo.role) return err_('not authorized', 403);
   try {
     checkUploadsForNewFiles();
     return ok_({ ran: true });

@@ -123,8 +123,12 @@
   <div id="empDashboard" class="wf-body" style="display:none;">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div class="section-label mb-0" data-i18n="secMyClients">عملائي</div>
-      <button type="button" class="btn btn-outline-secondary btn-sm"
-        style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadMyClients()" data-i18n="btnRefresh">تحديث</button>
+      <div class="d-flex gap-2">
+        <button type="button" id="btnCheckUploadsEmp" class="btn btn-outline-primary btn-sm"
+          style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="runCheckUploads()" data-i18n="btnCheckUploads">تحديث رفع الملفات</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+          style="font-family:'Cairo',sans-serif;font-size:.8rem;" onclick="loadMyClients()" data-i18n="btnRefresh">تحديث</button>
+      </div>
     </div>
     <div class="filter-bar d-flex align-items-center gap-2 flex-wrap">
       <label class="form-label mb-0 me-2" style="font-size:.82rem;" data-i18n="filterClient">العميل:</label>
@@ -165,6 +169,7 @@
             <tr>
               <th data-i18n="thFile">الملف</th>
               <th data-i18n="thDate">التاريخ</th>
+              <th data-i18n="thLastUpdate">آخر تحديث</th>
               <th data-i18n="thStatus">الحالة</th>
               <th data-i18n="thFinished">مراجَع ✓</th>
               <th data-i18n="thNote">ملاحظة</th>
@@ -172,7 +177,7 @@
             </tr>
           </thead>
           <tbody id="empRowsBody">
-            <tr><td colspan="6" class="text-center text-muted py-4" data-i18n="noRows">لا توجد سجلات</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-4" data-i18n="noRows">لا توجد سجلات</td></tr>
           </tbody>
         </table>
       </div>
@@ -241,6 +246,7 @@
                 class="form-check-input" style="width:1.1em;height:1.1em;"></th>
               <th data-i18n="thFile">الملف</th>
               <th data-i18n="thDate">التاريخ</th>
+              <th data-i18n="thLastUpdate">آخر تحديث</th>
               <th data-i18n="thStatus">الحالة</th>
               <th data-i18n="thNote">ملاحظة الموظف</th>
               <th data-i18n="thReturnCount">مرات الإرجاع</th>
@@ -348,7 +354,7 @@ var T = {
     tryAnother:'تجربة بريد آخر', logout:'خروج',
     secMyClients:'عملائي', secPending:'كل الملفات',
     filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnCheckUploads:'تحديث رفع الملفات', btnCheckingUploads:'جارٍ التحديث…', toastUploadsChecked:'تم فحص الرفع ✓', btnBack:'← رجوع',
-    thFile:'الملف', thDate:'التاريخ', thStatus:'الحالة',
+    thFile:'الملف', thDate:'التاريخ', thLastUpdate:'آخر تحديث', thStatus:'الحالة',
     thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع',
     noRows:'لا توجد مهمات', noClients:'لا توجد عملاء',
     sNew:'ملف جديد', sInProgress:'قيد المراجعة', sReturned:'عائد للموظف',
@@ -382,8 +388,8 @@ var T = {
     unauthBody:'Your email is not registered in the system.',
     tryAnother:'Try another account', logout:'Sign out',
     secMyClients:'My Clients', secPending:'All Files',
-    filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnCheckUploads:'تحديث رفع الملفات', btnCheckingUploads:'جارٍ التحديث…', toastUploadsChecked:'Uploads checked ✓', btnBack:'← Back',
-    thFile:'File', thDate:'Date', thStatus:'Status',
+    filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnCheckUploads:'Refresh File Upload', btnCheckingUploads:'Refreshing…', toastUploadsChecked:'Uploads checked ✓', btnBack:'← Back',
+    thFile:'File', thDate:'Date', thLastUpdate:'Last Update', thStatus:'Status',
     thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns',
     noRows:'No tasks yet', noClients:'No clients',
     sNew:'New', sInProgress:'In Progress', sReturned:'Returned',
@@ -466,6 +472,16 @@ function badge(status) {
 // ── XSS escape ────────────────────────────────────────────────
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Format date as yyyy-MM-dd HH:mm ───────────────────────────
+function fmtDateTime(v) {
+  if (!v) return '—';
+  var d = new Date(v);
+  if (isNaN(d.getTime())) return '—';
+  var p = function(n){ return n < 10 ? '0'+n : ''+n; };
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) +
+         ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 
 // ── API ───────────────────────────────────────────────────────
@@ -621,17 +637,17 @@ function renderEmpRows() {
   var t      = T[LANG];
   var filter = document.getElementById('empRowStatusFilter').value;
   var rows   = filter ? allRows.filter(function(r){return r.status===filter;}) : allRows.slice();
-  // Sort newest first by year/month/day descending
+  // Sort newest first by lastUpdated (audit timestamp) descending
   rows.sort(function(a, b) {
-    var da = [String(a.year||''),String(a.month||'').padStart(2,'0'),String(a.day||'').padStart(2,'0')].join('');
-    var db = [String(b.year||''),String(b.month||'').padStart(2,'0'),String(b.day||'').padStart(2,'0')].join('');
-    return db < da ? -1 : db > da ? 1 : 0;
+    var ta = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+    var tb = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+    return tb - ta;
   });
   var tbody  = document.getElementById('empRowsBody');
   var editable = ['new','in_progress','returned'];
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">'+t.noRows+'</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+t.noRows+'</td></tr>';
     document.getElementById('submitDaySection').style.display = 'none';
     return;
   }
@@ -662,6 +678,7 @@ function renderEmpRows() {
       '<tr>',
         '<td>'+fileLink+'</td>',
         '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
+        '<td dir="ltr" style="white-space:nowrap;font-size:.78rem;color:#6c757d;">'+esc(fmtDateTime(r.lastUpdated))+'</td>',
         '<td>'+badge(r.status)+'</td>',
         '<td class="text-center">',
           r.finished ? '<span style="color:#0f5132;font-size:1.1rem;">✓</span>' : '<span style="color:#aaa;">—</span>',
@@ -778,18 +795,15 @@ function loadPending() {
 }
 
 function runCheckUploads() {
-  var t   = T[LANG];
-  var btn = document.getElementById('btnCheckUploads');
-  if (!btn) return;
-  var prevLabel = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = t.btnCheckingUploads;
+  var t    = T[LANG];
+  var btns = ['btnCheckUploads','btnCheckUploadsEmp'].map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  btns.forEach(function(b){ b.disabled = true; b.textContent = t.btnCheckingUploads; });
   apiPost({ action:'checkUploads' }, function(err, res) {
-    btn.disabled = false;
-    btn.textContent = prevLabel;
+    btns.forEach(function(b){ b.disabled = false; b.setAttribute('data-i18n','btnCheckUploads'); b.textContent = t.btnCheckUploads; });
     if (err || !res || !res.ok) { showToast(t.toastError, true); return; }
     showToast(t.toastUploadsChecked);
-    loadPending();
+    if (currentUser && currentUser.role === 'supervisor') loadPending();
+    else loadMyClients();
   });
 }
 
@@ -862,7 +876,14 @@ function openSupDetailById(cid) {
   var allClientRows = client.rows || [];
   var rows = statusFilter
     ? allClientRows.filter(function(r){ return r.status === statusFilter; })
-    : allClientRows;
+    : allClientRows.slice();
+
+  // Sort newest first by lastUpdated (audit timestamp) descending
+  rows.sort(function(a, b) {
+    var ta = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+    var tb = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+    return tb - ta;
+  });
 
   var tbody = document.getElementById('supRowsBody');
   var hasSubmitted = rows.some(function(r){ return r.status === 'submitted'; });
@@ -879,6 +900,7 @@ function openSupDetailById(cid) {
         '<td><input type="checkbox" class="form-check-input row-chk" style="width:1.1em;height:1.1em;"'+chkDisabled+' onchange="updateSupActionButtons()" value="'+esc(r.id)+'"></td>',
         '<td>'+fileLink+'</td>',
         '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
+        '<td dir="ltr" style="white-space:nowrap;font-size:.78rem;color:#6c757d;">'+esc(fmtDateTime(r.lastUpdated))+'</td>',
         '<td>'+badge(r.status)+'</td>',
         '<td style="font-size:.8rem;max-width:200px;">'+esc(r.note||'—')+'</td>',
         '<td class="text-center">'+esc(String(r.returnCount||0))+'</td>',
