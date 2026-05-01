@@ -2,12 +2,12 @@
 // 01_Setup.gs
 // Configuration constants & one-time setup
 // ============================================================
-//08:27pm 2026-04-23
+//02:27am 2026-05-01
 // ── Drive Folder IDs ──────────────────────────────────────────
-const TEMPLATE_FOLDER_ID  = '1cyLrz5ytwi1H8Dm8EB0fEsN2MUN3EoDE';
-const CLIENTS_FOLDER_ID   = '11TTBnXnB8s2mb7BMetiqa0T-__eDjrZN';
-const EMPLOYEES_FOLDER_ID   = '17q6SA-YhglvmUNC6ffYPqdWMLOn1PpOv';
-const SUPERVISORS_FOLDER_ID = '1B3XQAZC4Ho6b7Ey4zsdW7hvxVrQg0fRO';
+const TEMPLATE_FOLDER_ID  = '1_1aY7qwmgYBj-WCCG3ROmbov-R6qcfMR';
+const CLIENTS_FOLDER_ID   = '1wSjD_NCkCzwH_aXKXhlGHxhftex2fLEx';
+const EMPLOYEES_FOLDER_ID   = '1Yk_Qs2O5K73YpnbVtBnvaAwR5tLRBIdI';
+const SUPERVISORS_FOLDER_ID = '1hMDOwUGD9OLihRG_lRA49zz9TsPeR-Cg';
 
 // ── Folder Names ──────────────────────────────────────────────
 const FOLDER_UPLOADS    = 'uploads';
@@ -61,7 +61,7 @@ const COMPANY_LOGO_URL = 'https://api.statix-sa.com/storage/logos/01KGES5RKAA6SV
 const CALENDAR_REMINDER_DAYS = 7;
 
 // ── Upload Monitoring ─────────────────────────────────────────
-const UPLOAD_CHECK_MINUTES    = 1;
+const UPLOAD_CHECK_MINUTES    = 15;
 
 // ── Web App URL (workflow.html portal) ──────────────────────
 function getPortalUrl_() {
@@ -225,21 +225,33 @@ function setupHeaders() {
   const lastRow = totalRows - 1;
 
   // lang column (K) → ar / en
-  var langRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['ar', 'en'], true)
-    .setAllowInvalid(false)
-    .build();
-  sheet.getRange(2, COL_LANG, lastRow, 1).setDataValidation(langRule);
+  try {
+    var langRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['ar', 'en'], true)
+      .setAllowInvalid(false)
+      .build();
+    sheet.getRange(2, COL_LANG, lastRow, 1).setDataValidation(langRule);
+  } catch (e) {
+    Logger.log('lang column already typed — skipping validation: ' + e.message);
+  }
 
   // assined_employee column (L) → names from employees sheet col A
   var empSheet   = ss.getSheetByName(EMPLOYEES_SHEET_NAME);
   var empLastRow = empSheet.getLastRow();
   if (empLastRow > 1) {
-    var empRule = SpreadsheetApp.newDataValidation()
-      .requireValueInRange(empSheet.getRange('A2:A' + empLastRow), true)
-      .setAllowInvalid(false)
-      .build();
-    sheet.getRange(2, COL_EMPLOYEE, lastRow, 1).setDataValidation(empRule);
+    var empNames = empSheet.getRange(2, COL_EMP_NAME, empLastRow - 1, 1)
+      .getValues().flat().filter(function(v) { return v !== ''; });
+    if (empNames.length > 0) {
+      try {
+        var empRule = SpreadsheetApp.newDataValidation()
+          .requireValueInList(empNames, true)
+          .setAllowInvalid(false)
+          .build();
+        sheet.getRange(2, COL_EMPLOYEE, lastRow, 1).setDataValidation(empRule);
+      } catch (e) {
+        Logger.log('employee column already typed — skipping validation: ' + e.message);
+      }
+    }
   }
 
   // ── Chip-style for folder_url column (M) ─────────────────
@@ -250,8 +262,12 @@ function setupHeaders() {
     .setFontSize(10);
 
   // ── Checkbox for is_active column (Q) ────────────────────
-  sheet.getRange(2, COL_IS_ACTIVE, lastRow, 1)
-    .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  try {
+    sheet.getRange(2, COL_IS_ACTIVE, lastRow, 1)
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  } catch (e) {
+    Logger.log('is_active column already typed as Checkbox — skipping validation: ' + e.message);
+  }
 
   Logger.log('Headers updated');
 }
@@ -323,27 +339,39 @@ function setupTriggers() {
   // ── Ensure employees sheet has supervisor columns E & G ───
   const empSheet = ss.getSheetByName(EMPLOYEES_SHEET_NAME);
   if (empSheet) {
-    while (empSheet.getMaxColumns() < COL_EMP_PREV_SUPERVISOR) {
-      empSheet.insertColumnAfter(empSheet.getMaxColumns());
+    try {
+      while (empSheet.getMaxColumns() < COL_EMP_PREV_SUPERVISOR) {
+        empSheet.insertColumnAfter(empSheet.getMaxColumns());
+      }
+    } catch (e) {
+      Logger.log('insertColumnAfter blocked (typed columns): ' + e.message);
     }
     const hdrStyle = function(cell) {
       cell.setBackground('#1a73e8').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     };
-    hdrStyle(empSheet.getRange(1, COL_EMP_SUPERVISOR));
-    empSheet.getRange(1, COL_EMP_SUPERVISOR).setValue('المشرف');
-    hdrStyle(empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR));
-    empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR).setValue('prev_supervisor');
+    try { hdrStyle(empSheet.getRange(1, COL_EMP_SUPERVISOR)); empSheet.getRange(1, COL_EMP_SUPERVISOR).setValue('المشرف'); } catch(e) { Logger.log('emp supervisor header: ' + e.message); }
+    try { hdrStyle(empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR)); empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR).setValue('prev_supervisor'); } catch(e) { Logger.log('emp prev_supervisor header: ' + e.message); }
 
     // Dropdown for col E: sourced from supervisors sheet col A
     // Apply only to rows that already have data — new rows get it via onEdit.
     const supLastRow  = supSheet.getLastRow();
     const empLastRow  = empSheet.getLastRow(); // actual last row with data
     if (supLastRow > 1 && empLastRow > 1) {
-      const supRule = SpreadsheetApp.newDataValidation()
-        .requireValueInRange(supSheet.getRange(2, COL_SUP_NAME, supLastRow - 1, 1), true)
-        .setAllowInvalid(false)
-        .build();
-      empSheet.getRange(2, COL_EMP_SUPERVISOR, empLastRow - 1, 1).setDataValidation(supRule);
+      const supValues = supSheet
+        .getRange(2, COL_SUP_NAME, supLastRow - 1, 1)
+        .getValues().flat()
+        .filter(function(v) { return v !== ''; });
+      if (supValues.length > 0) {
+        try {
+          const supRule = SpreadsheetApp.newDataValidation()
+            .requireValueInList(supValues, true)
+            .setAllowInvalid(false)
+            .build();
+          empSheet.getRange(2, COL_EMP_SUPERVISOR, empLastRow - 1, 1).setDataValidation(supRule);
+        } catch (e) {
+          Logger.log('supervisor column already typed — skipping validation: ' + e.message);
+        }
+      }
     }
     Logger.log('Employees sheet supervisor column ready');
   }

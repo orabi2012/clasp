@@ -74,7 +74,7 @@ function checkUploadsForNewFiles() {
           name:        f.getName(),
           url:         f.getUrl(),
           size:        f.getSize(),
-          dateCreated: f.getDateCreated()
+          dateCreated: f.getLastUpdated()
         });
       }
 

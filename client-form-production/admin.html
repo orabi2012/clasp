@@ -18,8 +18,17 @@
     background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
     color:#fff; padding:1.5rem 2rem; position:relative; text-align:center;
   }
+  .admin-header img.brand-logo { height:44px; margin-bottom:.85rem; display:block; margin-inline:auto; }
   .admin-header h1 { font-size:1.4rem; font-weight:700; margin:0; }
   .admin-header p { font-size:.85rem; opacity:.9; margin:.25rem 0 0; }
+  .admin-footer {
+    background: var(--brand);
+    padding: .9rem 2rem;
+    color: rgba(255,255,255,.75);
+    font-size: .82rem;
+    text-align: center;
+  }
+  .admin-footer a { color: rgba(255,255,255,.9); text-decoration: none; }
   .user-chip {
     display:inline-flex; align-items:center; gap:8px;
     background:rgba(255,255,255,.18); border-radius:20px; padding:5px 14px;
@@ -80,6 +89,7 @@
       <span class="role-tag">Admin</span>
       <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.85);font-size:.72rem;margin-inline-start:6px;">خروج</a>
     </div>
+    <img class="brand-logo" src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
     <h1>لوحة الإدارة</h1>
     <p>إدارة العملاء والموظفين والمشرفين</p>
   </div>
@@ -186,11 +196,18 @@
       </div>
     </div>
   </div>
+
+  <!-- Footer -->
+  <div class="admin-footer">
+    <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
+    &nbsp;·&nbsp; <span>لوحة إدارة Statix</span>
+  </div>
+
 </div>
 
 <script>
   // Same web app + GIS client used by workflow.html
-  const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbxn2uct1ot2xn3zP5MVPTj4D330qoe5aaIWXUHG78CBN6QNByl_s5uQ4ApTj3xn3dTT/exec';
+  const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbwMR6qeHOz8wkfvFDiWFgQDHZ-62aQmuofyStxUnqqczmeLnskokuO_apIy1fcqWpNT/exec';
   const GIS_CLIENT_ID = '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com';
 
   let idToken = null;
