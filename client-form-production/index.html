@@ -33,7 +33,7 @@
 
   <!-- Header -->
   <div class="form-header" style="position:relative;">
-    <div id="langToggle" style="position:absolute;top:10px;left:10px;">
+    <div id="langToggle" style="position:absolute;top:14px;left:14px;">
       <button id="btn-ar" type="button" onclick="switchLang('ar')"
         style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
       <button id="btn-en" type="button" onclick="switchLang('en')"
@@ -85,7 +85,7 @@
         <!-- Hidden real input -->
         <input type="email" class="form-control" id="userEmail" placeholder="example@gmail.com" dir="ltr" required style="display:none;">
         <!-- GSI button (shown before sign-in) -->
-        <div id="gsiWrap">
+        <div id="gsiWrap" style="display:flex;justify-content:center;margin-top:.5rem;">
           <div id="googleSignInBtn" class="mb-1"></div>
         </div>
         <!-- Email badge (shown after sign-in) -->
@@ -287,8 +287,8 @@
     document.getElementById('btn-ar').style.cssText = (lang === 'ar' ? activeStyle : inactiveStyle) + 'border-radius:4px 0 0 4px;';
     document.getElementById('btn-en').style.cssText = (lang === 'en' ? activeStyle : inactiveStyle) + 'border-radius:0 4px 4px 0;';
     var toggle = document.getElementById('langToggle');
-    if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '10px'; }
-    else               { toggle.style.right = ''; toggle.style.left = '10px'; }
+    if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '14px'; }
+    else               { toggle.style.right = ''; toggle.style.left = '14px'; }
     if (typeof google !== 'undefined' && google.accounts) {
       document.getElementById('googleSignInBtn').innerHTML = '';
       google.accounts.id.renderButton(

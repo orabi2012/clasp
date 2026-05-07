@@ -695,7 +695,7 @@ function sendSubmittedToSupervisorEmail_(supEmail, supName, empName, clientName,
   }
 
   const portalBtn = portalUrl
-    ? `<a href="${portalUrl}" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;margin-top:8px;">
+    ? `<a href="${portalUrl}/workflow.html" style="display:inline-block;background:#0d6b6e;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;margin-top:8px;">
         افتح لوحة المتابعة ←
        </a>`
     : '';

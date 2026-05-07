@@ -101,6 +101,7 @@ function createClientFolder(clientName, clientEmail) {
     // Folder already exists (possibly from a previously failed attempt).
     // Ensure all required subfolders are present in case they were never created.
     ensureFolders_(folder);
+    grantAdminPermissions_(folder.getId());
     return { folderId: folder.getId(), folderUrl: folder.getUrl() };
   }
 
@@ -169,10 +170,30 @@ function createClientFolder(clientName, clientEmail) {
     throw err; // re-throw so caller handles it
   }
 
+  // Grant full access to all admin accounts
+  grantAdminPermissions_(clientFolder.getId());
+
   return { folderId: clientFolder.getId(), folderUrl: clientFolder.getUrl() };
 }
 
 // ── Permissions ───────────────────────────────────────────────
+
+/**
+ * Grants writer access on a folder to every email listed in the
+ * ADMIN_EMAILS script property (comma-separated).
+ */
+function grantAdminPermissions_(folderId) {
+  var raw = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS') || '';
+  var emails = raw.split(',').map(function(e) { return e.trim(); }).filter(Boolean);
+  emails.forEach(function(email) {
+    try {
+      drivePermCreate_({ role: 'writer', type: 'user', emailAddress: email }, folderId);
+      Utilities.sleep(200);
+    } catch (err) {
+      Logger.log('grantAdminPermissions_: failed for ' + email + ': ' + err.message);
+    }
+  });
+}
 
 /**
  * Thin wrapper around Drive.Permissions.create that ignores the

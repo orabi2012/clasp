@@ -6,13 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>لوحة الإدارة</title>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
+<link id="bs-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer onload="initGSI()"></script>
 
 <style>
-  :root { --brand:#1e3a8a; --brand-2:#2563eb; }
-  body { font-family:'Cairo',sans-serif; background:#eef2f9; color:#212529; }
+  :root { --brand:#1c2d3e; --brand-2:#2a8a82; --brand-gold:#c9922a; }
+  body { font-family:'Cairo',sans-serif; background:#edf2f7; color:#212529; }
   .admin-card { max-width:1200px; margin:1.5rem auto; border-radius:16px; overflow:hidden; box-shadow:0 6px 32px rgba(0,0,0,.08); background:#fff; }
   .admin-header {
     background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
@@ -32,7 +32,7 @@
   .user-chip {
     display:inline-flex; align-items:center; gap:8px;
     background:rgba(255,255,255,.18); border-radius:20px; padding:5px 14px;
-    font-size:.82rem; position:absolute; top:14px; left:14px;
+    font-size:.82rem; position:absolute; top:14px; right:14px;
   }
   .role-tag { font-size:.68rem; background:rgba(255,255,255,.28); border-radius:10px; padding:2px 8px; }
   .admin-body { padding:1.5rem 2rem 2rem; }
@@ -50,7 +50,7 @@
 
   .btn-action { font-size:.78rem; font-weight:600; padding:4px 12px; border-radius:8px; }
 
-  #loginSection, #loadingSection, #unauthorizedSection { padding:3rem 2rem; text-align:center; }
+  #loginSection, #loadingSection, #unauthorizedSection { padding:3rem 2rem; text-align:center; background:#fff; }
 
   .toast-host {
     position:fixed; top:20px; left:50%; transform:translateX(-50%);
@@ -87,25 +87,31 @@
     <div id="userChip" class="user-chip" style="display:none;">
       <span id="chipName"></span>
       <span class="role-tag">Admin</span>
-      <a href="#" onclick="doLogout();return false;" style="color:rgba(255,255,255,.85);font-size:.72rem;margin-inline-start:6px;">خروج</a>
+        <a href="#" onclick="doLogout();return false;" data-logout style="color:rgba(255,255,255,.85);font-size:.72rem;margin-inline-start:6px;">خروج</a>
+    </div>
+    <div id="langToggle" style="position:absolute;top:14px;left:14px;">
+      <button id="btn-ar" type="button" onclick="switchLang('ar')"
+        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
+      <button id="btn-en" type="button" onclick="switchLang('en')"
+        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
     </div>
     <img class="brand-logo" src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
-    <h1>لوحة الإدارة</h1>
-    <p>إدارة العملاء والموظفين والمشرفين</p>
+    <h1 id="adminH1">لوحة الإدارة</h1>
+    <p id="adminSub">إدارة العملاء والموظفين والمشرفين</p>
   </div>
 
   <!-- Login -->
   <div id="loginSection">
     <div style="font-size:2.5rem;margin-bottom:1rem;">🔐</div>
-    <h5 style="color:#2d3748;font-weight:700;">تسجيل الدخول</h5>
-    <p class="text-muted" style="font-size:.9rem;">استخدم حساب Google الخاص بك</p>
-    <div style="display:flex;justify-content:center;margin-top:1.5rem;">
+    <h5 style="color:#2d3748;font-weight:700;" id="loginTitle">تسجيل الدخول</h5>
+    <p class="text-muted" style="font-size:.9rem;" id="loginBody">استخدم حساب Google الخاص بك</p>
+    <div id="gsiWrap" style="display:flex;justify-content:center;margin-top:1.5rem;">
       <div id="googleSignInBtn"></div>
     </div>
   </div>
 
   <!-- Loading -->
-  <div id="loadingSection" style="display:none;text-align:center;padding:3rem 2rem;">
+  <div id="loadingSection" style="display:none;">
     <div class="spinner-border" style="color:var(--brand);width:2.5rem;height:2.5rem;" role="status"></div>
     <p class="mt-3 text-muted">جارٍ التحقق…</p>
   </div>
@@ -122,20 +128,21 @@
   <div id="dashboard" class="admin-body" style="display:none;">
 
     <ul class="nav nav-tabs mb-3" role="tablist">
-      <li class="nav-item"><button class="nav-link active" data-tab="clients" onclick="switchTab('clients')">العملاء</button></li>
-      <li class="nav-item"><button class="nav-link" data-tab="people" onclick="switchTab('people')">الموظفون والمشرفون</button></li>
+      <li class="nav-item"><button class="nav-link active" data-tab="clients" onclick="switchTab('clients')"></button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="employees" onclick="switchTab('employees')"></button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="supervisors" onclick="switchTab('supervisors')"></button></li>
     </ul>
 
     <!-- ── Clients tab ───────────────────────────────────── -->
     <div id="tab-clients">
       <div class="filter-bar d-flex gap-2 align-items-center flex-wrap">
         <input id="clientSearch" class="form-control form-control-sm" style="max-width:280px;" placeholder="بحث (اسم / بريد / موظف)" oninput="renderClients()">
-        <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="loadClients()">تحديث</button>
+        <button id="btnRefreshClients" class="btn btn-outline-secondary btn-sm ms-auto" onclick="loadClients()">تحديث</button>
       </div>
       <div class="table-responsive">
         <table class="table table-hover admin-table">
           <thead>
-            <tr>
+            <tr id="clientsHead">
               <th>اسم العميل</th>
               <th>البريد</th>
               <th>الجوال</th>
@@ -153,10 +160,8 @@
       </div>
     </div>
 
-    <!-- ── People tab ────────────────────────────────────── -->
-    <div id="tab-people" style="display:none;">
-
-      <h6 class="mt-2" style="font-weight:700;color:var(--brand);">الموظفون</h6>
+    <!-- ── Employees tab ──────────────────────────────────── -->
+    <div id="tab-employees" style="display:none;">
       <div class="add-form">
         <div class="row g-2 align-items-end">
           <div class="col"><input id="newEmpName" class="form-control" placeholder="الاسم"></div>
@@ -167,16 +172,18 @@
           <div class="col-auto"><button class="btn btn-success btn-sm btn-action" onclick="addPerson('employee')">+ إضافة</button></div>
         </div>
       </div>
-      <div class="table-responsive mb-4">
+      <div class="table-responsive">
         <table class="table table-hover admin-table">
-          <thead><tr>
+          <thead><tr id="empsHead">
             <th>الاسم</th><th>البريد</th><th>الجوال</th><th>الوظيفة</th><th>المشرف</th><th>إجراء</th>
           </tr></thead>
           <tbody id="empsBody"></tbody>
         </table>
       </div>
+    </div>
 
-      <h6 class="mt-2" style="font-weight:700;color:var(--brand);">المشرفون</h6>
+    <!-- ── Supervisors tab ───────────────────────────────── -->
+    <div id="tab-supervisors" style="display:none;">
       <div class="add-form">
         <div class="row g-2 align-items-end">
           <div class="col"><input id="newSupName" class="form-control" placeholder="الاسم"></div>
@@ -188,7 +195,7 @@
       </div>
       <div class="table-responsive">
         <table class="table table-hover admin-table">
-          <thead><tr>
+          <thead><tr id="supsHead">
             <th>الاسم</th><th>البريد</th><th>الجوال</th><th>الوظيفة</th><th>إجراء</th>
           </tr></thead>
           <tbody id="supsBody"></tbody>
@@ -206,6 +213,85 @@
 </div>
 
 <script>
+  // ── Language ────────────────────────────────────────────────
+  var LANG = 'ar';
+  var L = {
+    ar: {
+      dir:'rtl', bsCss:'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css',
+      title:'لوحة الإدارة', h1:'لوحة الإدارة', sub:'إدارة العملاء والموظفين والمشرفين',
+      logout:'خروج', tabClients:'العملاء', tabEmployees:'الموظفون', tabSupervisors:'المشرفون',
+      searchPlaceholder:'بحث (اسم / بريد / موظف)', refresh:'تحديث',
+      colName:'اسم العميل', colEmail:'البريد', colPhone:'الجوال', colStatus:'الحالة',
+      colEmp:'الموظف الحالي', colChangeEmp:'تغيير الموظف', colFolder:'المجلد', colActions:'إجراء',
+      active:'نشط', inactive:'غير نشط', openFolder:'فتح', edit:'تعديل', disable:'تعطيل', enable:'تفعيل',
+      noAssigned:'— غير معيّن —', disabled:'— معطّل —', noFolder:'—', loading:'جارٍ التحميل…', noData:'لا توجد بيانات',
+      unassign:'— إلغاء التعيين —',
+      secEmps:'الموظفون', secSups:'المشرفون',
+      save:'حفظ', del:'حذف', add:'+ إضافة',
+      phName:'الاسم', phEmail:'البريد', phPhone:'الجوال', phJob:'الوظيفة', phSup:'— المشرف —',
+      colEmpName:'الاسم', colEmpEmail:'البريد', colEmpPhone:'الجوال', colEmpJob:'الوظيفة', colEmpSup:'المشرف', colEmpAct:'إجراء',
+      noEmps:'لا يوجد موظفون', noSups:'لا يوجد مشرفون',
+      editModalTitle:'تعديل بيانات العميل', editEmailLabel:'البريد الإلكتروني (غير قابل للتعديل)',
+      editNote:'ملاحظة: عند تغيير تاريخ الإقرار الضريبي أو الزكوي سيتم تحديث أحداث التقويم تلقائياً.',
+      cancel:'إلغاء', saveBtn:'حفظ'
+    },
+    en: {
+      dir:'ltr', bsCss:'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+      title:'Admin Panel', h1:'Admin Panel', sub:'Manage clients, employees and supervisors',
+      logout:'Logout', tabClients:'Clients', tabEmployees:'Employees', tabSupervisors:'Supervisors',
+      searchPlaceholder:'Search (name / email / employee)', refresh:'Refresh',
+      colName:'Client Name', colEmail:'Email', colPhone:'Phone', colStatus:'Status',
+      colEmp:'Current Employee', colChangeEmp:'Change Employee', colFolder:'Folder', colActions:'Actions',
+      active:'Active', inactive:'Inactive', openFolder:'Open', edit:'Edit', disable:'Disable', enable:'Enable',
+      noAssigned:'— Unassigned —', disabled:'— Disabled —', noFolder:'—', loading:'Loading…', noData:'No data',
+      unassign:'— Unassign —',
+      secEmps:'Employees', secSups:'Supervisors',
+      save:'Save', del:'Delete', add:'+ Add',
+      phName:'Name', phEmail:'Email', phPhone:'Phone', phJob:'Job', phSup:'— Supervisor —',
+      colEmpName:'Name', colEmpEmail:'Email', colEmpPhone:'Phone', colEmpJob:'Job', colEmpSup:'Supervisor', colEmpAct:'Actions',
+      noEmps:'No employees', noSups:'No supervisors',
+      editModalTitle:'Edit Client', editEmailLabel:'Email (read-only)',
+      editNote:'Note: changing tax/zakat dates will automatically update calendar events.',
+      cancel:'Cancel', saveBtn:'Save'
+    }
+  };
+
+  function switchLang(lang) {
+    LANG = lang;
+    var t = L[lang];
+    document.documentElement.lang = lang;
+    document.documentElement.dir  = t.dir;
+    document.getElementById('bs-css').href = t.bsCss;
+    document.title = t.title;
+    document.getElementById('adminH1').textContent  = t.h1;
+    document.getElementById('adminSub').textContent = t.sub;
+    document.querySelector('[data-logout]').textContent = t.logout;
+    document.querySelector('[data-tab="clients"]').textContent    = t.tabClients;
+    document.querySelector('[data-tab="employees"]').textContent   = t.tabEmployees;
+    document.querySelector('[data-tab="supervisors"]').textContent = t.tabSupervisors;
+    document.getElementById('clientSearch').placeholder = t.searchPlaceholder;
+    document.getElementById('btnRefreshClients').textContent = t.refresh;
+    var loginTitleEl = document.getElementById('loginTitle');
+    var loginBodyEl  = document.getElementById('loginBody');
+    if (loginTitleEl) loginTitleEl.textContent = lang==='ar' ? 'تسجيل الدخول' : 'Sign In';
+    if (loginBodyEl)  loginBodyEl.textContent  = lang==='ar' ? 'استخدم حساب Google الخاص بك' : 'Use your Google account';
+    if (typeof google !== 'undefined' && google.accounts) {
+      document.getElementById('googleSignInBtn').innerHTML = '';
+      google.accounts.id.renderButton(document.getElementById('googleSignInBtn'),
+        { theme:'outline', size:'large', text:'signin_with', locale: lang==='ar' ? 'ar' : 'en', width:280 });
+    }
+    var aS = "background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
+    var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
+    document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
+    document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
+    var tgl = document.getElementById('langToggle');
+    var chip = document.getElementById('userChip');
+    if (lang==='en') { tgl.style.left=''; tgl.style.right='14px'; if(chip){chip.style.right='';chip.style.left='14px';} }
+    else             { tgl.style.right=''; tgl.style.left='14px'; if(chip){chip.style.left='';chip.style.right='14px';} }
+    renderClients();
+    renderPeople();
+  }
+
   // Same web app + GIS client used by workflow.html
   const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbwMR6qeHOz8wkfvFDiWFgQDHZ-62aQmuofyStxUnqqczmeLnskokuO_apIy1fcqWpNT/exec';
   const GIS_CLIENT_ID = '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com';
@@ -217,16 +303,16 @@
 
   // ── GIS sign-in ─────────────────────────────────────────────
   function initGSI() {
-    if (!GIS_CLIENT_ID) { showToast('GIS Client ID غير مضبوط في Script Properties', 'err'); return; }
+    switchLang('ar'); // set initial language labels
+    if (typeof google === 'undefined' || !google.accounts) return;
     google.accounts.id.initialize({
       client_id: GIS_CLIENT_ID,
       callback: onCredential,
-      auto_select: true,
-      use_fedcm_for_prompt: true
+      auto_select: false
     });
     google.accounts.id.renderButton(
       document.getElementById('googleSignInBtn'),
-      { type:'standard', theme:'outline', size:'large', text:'signin_with', locale:'ar' }
+      { theme:'outline', size:'large', text:'signin_with', locale:'ar', width:280 }
     );
   }
 
@@ -299,8 +385,9 @@
     document.querySelectorAll('.nav-link[data-tab]').forEach(function(b) {
       b.classList.toggle('active', b.dataset.tab === name);
     });
-    show('tab-clients', name === 'clients');
-    show('tab-people',  name === 'people');
+    show('tab-clients',     name === 'clients');
+    show('tab-employees',   name === 'employees');
+    show('tab-supervisors', name === 'supervisors');
   }
 
   // ── Clients ─────────────────────────────────────────────────
@@ -315,9 +402,15 @@
   }
 
   function renderClients() {
+    var t = L[LANG];
+    // update table headers
+    var th = document.querySelectorAll('#clientsHead th');
+    var hdrs = [t.colName, t.colEmail, t.colPhone, t.colStatus, t.colEmp, t.colChangeEmp, t.colFolder, t.colActions];
+    th.forEach(function(el,i){ if(hdrs[i]) el.textContent = hdrs[i]; });
+
     var q = (document.getElementById('clientSearch').value || '').toLowerCase().trim();
     var body = document.getElementById('clientsBody');
-    var empOptions = '<option value="">-- إلغاء التعيين --</option>' +
+    var empOptions = '<option value="">' + t.unassign + '</option>' +
       people.employees.map(function(e){ return '<option value="'+escapeAttr(e.name)+'">'+escapeHtml(e.name)+'</option>'; }).join('');
     body.innerHTML = '';
     var filtered = clients.filter(function(c) {
@@ -325,7 +418,7 @@
       return (c.name+' '+c.email+' '+c.employee).toLowerCase().indexOf(q) !== -1;
     });
     if (filtered.length === 0) {
-      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">لا توجد بيانات</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">'+t.noData+'</td></tr>';
       return;
     }
     filtered.forEach(function(c) {
@@ -333,25 +426,29 @@
       if (!c.isActive) tr.classList.add('table-secondary');
       tr.id = 'crow-' + c.row;
       var statusBadge = c.isActive
-        ? '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#d1e7dd;color:#0f5132;">نشط</span>'
-        : '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#f8d7da;color:#842029;">غير نشط</span>';
+        ? '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#d1e7dd;color:#0f5132;">'+t.active+'</span>'
+        : '<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:#f8d7da;color:#842029;">'+t.inactive+'</span>';
       var toggleBtn = c.isActive
-        ? '<button class="btn btn-sm btn-outline-warning btn-action" onclick="toggleClientActive(' + c.row + ', false)">تعطيل</button>'
-        : '<button class="btn btn-sm btn-outline-success btn-action" onclick="toggleClientActive(' + c.row + ', true)">تفعيل</button>';
+        ? '<button class="btn btn-sm btn-outline-warning btn-action" onclick="toggleClientActive(' + c.row + ', false)">'+t.disable+'</button>'
+        : '<button class="btn btn-sm btn-outline-success btn-action" onclick="toggleClientActive(' + c.row + ', true)">'+t.enable+'</button>';
+      // Build folder URL: use folderId directly (folderUrl may be a Sheets hyperlink display text)
+      var folderHref = c.folderId
+        ? 'https://drive.google.com/drive/folders/' + c.folderId
+        : (c.folderUrl && c.folderUrl.indexOf('http') === 0 ? c.folderUrl : '');
       tr.innerHTML =
         '<td>' + escapeHtml(c.name) + '</td>' +
         '<td style="direction:ltr;">' + escapeHtml(c.email) + '</td>' +
         '<td style="direction:ltr;">' + escapeHtml(c.phone || '') + '</td>' +
         '<td>' + statusBadge + '</td>' +
-        '<td>' + (c.employee ? escapeHtml(c.employee) : '<span class="text-muted">— غير معيّن —</span>') + '</td>' +
+        '<td>' + (c.employee ? escapeHtml(c.employee) : '<span class="text-muted">'+t.noAssigned+'</span>') + '</td>' +
         '<td>' + (c.isActive
           ? '<select class="form-select form-select-sm" style="min-width:160px;" onchange="changeEmployee(' + c.row + ', this.value)">' +
               empOptions.replace('value="' + escapeAttr(c.employee) + '"', 'value="' + escapeAttr(c.employee) + '" selected') +
               '</select>'
-          : '<span class="text-muted" style="font-size:.82rem;">— معطّل —</span>') + '</td>' +
-        '<td>' + (c.folderUrl ? '<a href="' + escapeAttr(c.folderUrl) + '" target="_blank">فتح</a>' : '<span class="text-muted">—</span>') + '</td>' +
+          : '<span class="text-muted" style="font-size:.82rem;">'+t.disabled+'</span>') + '</td>' +
+        '<td>' + (folderHref ? '<a href="' + escapeAttr(folderHref) + '" target="_blank" rel="noopener noreferrer">'+t.openFolder+'</a>' : '<span class="text-muted">'+t.noFolder+'</span>') + '</td>' +
         '<td class="d-flex gap-1">' +
-          '<button class="btn btn-sm btn-outline-primary btn-action" onclick="openEditClient(' + c.row + ')">تعديل</button>' +
+          '<button class="btn btn-sm btn-outline-primary btn-action" onclick="openEditClient(' + c.row + ')">'+t.edit+'</button>' +
           toggleBtn +
         '</td>';
       body.appendChild(tr);
@@ -457,15 +554,28 @@
   }
 
   function renderPeople() {
+    var t = L[LANG];
+    // update tab labels
+    document.querySelector('[data-tab="clients"]').textContent    = t.tabClients;
+    document.querySelector('[data-tab="employees"]').textContent   = t.tabEmployees;
+    document.querySelector('[data-tab="supervisors"]').textContent = t.tabSupervisors;
+    // update table headers
+    var empsHead = document.querySelectorAll('#empsHead th');
+    [t.colEmpName, t.colEmpEmail, t.colEmpPhone, t.colEmpJob, t.colEmpSup, t.colEmpAct]
+      .forEach(function(h,i){ if(empsHead[i]) empsHead[i].textContent = h; });
+    var supsHead = document.querySelectorAll('#supsHead th');
+    [t.colEmpName, t.colEmpEmail, t.colEmpPhone, t.colEmpJob, t.colEmpAct]
+      .forEach(function(h,i){ if(supsHead[i]) supsHead[i].textContent = h; });
+
     // populate "new employee" supervisor dropdown
     var supSelect = document.getElementById('newEmpSupervisor');
-    supSelect.innerHTML = '<option value="">-- المشرف --</option>' +
+    supSelect.innerHTML = '<option value="">'+t.phSup+'</option>' +
       people.supervisors.map(function(s){ return '<option value="'+escapeAttr(s.name)+'">'+escapeHtml(s.name)+'</option>'; }).join('');
 
     // employees table
     var empBody = document.getElementById('empsBody');
     if (!people.employees.length) {
-      empBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">لا يوجد موظفون</td></tr>';
+        empBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">'+t.noEmps+'</td></tr>';
     } else {
       empBody.innerHTML = '';
       people.employees.forEach(function(p) {
@@ -482,8 +592,8 @@
           '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.job)   + '" data-k="job"></td>' +
           '<td><select class="form-select form-select-sm" data-k="supervisor">' + supOpts + '</select></td>' +
           '<td>' +
-            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'employee\', ' + p.row + ', this)">حفظ</button>' +
-            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'employee\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">حذف</button>' +
+            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'employee\', ' + p.row + ', this)">'+t.save+'</button>' +
+            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'employee\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">'+t.del+'</button>' +
           '</td>';
         empBody.appendChild(tr);
       });
@@ -492,7 +602,7 @@
     // supervisors table
     var supBody = document.getElementById('supsBody');
     if (!people.supervisors.length) {
-      supBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">لا يوجد مشرفون</td></tr>';
+        supBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">'+t.noSups+'</td></tr>';
     } else {
       supBody.innerHTML = '';
       people.supervisors.forEach(function(p) {
@@ -503,8 +613,8 @@
           '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.phone) + '" data-k="phone" style="direction:ltr;"></td>' +
           '<td><input class="form-control form-control-sm" value="' + escapeAttr(p.job)   + '" data-k="job"></td>' +
           '<td>' +
-            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'supervisor\', ' + p.row + ', this)">حفظ</button>' +
-            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'supervisor\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">حذف</button>' +
+            '<button class="btn btn-sm btn-primary btn-action me-1" onclick="savePerson(\'supervisor\', ' + p.row + ', this)">'+t.save+'</button>' +
+            '<button class="btn btn-sm btn-outline-danger btn-action" onclick="delPerson(\'supervisor\', ' + p.row + ', \'' + escapeAttr(p.name) + '\')">'+t.del+'</button>' +
           '</td>';
         supBody.appendChild(tr);
       });
@@ -567,7 +677,7 @@
 <div class="modal fade" id="editClientModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content" style="font-family:'Cairo',sans-serif;">
-      <div class="modal-header" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1c2d3e,#2a8a82);color:#fff;">
         <h5 class="modal-title">تعديل بيانات العميل</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"></button>
       </div>
@@ -617,7 +727,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
-        <button type="button" id="btnSaveEditClient" class="btn" style="background:#1e3a8a;color:#fff;" onclick="saveEditClient()">حفظ</button>
+        <button type="button" id="btnSaveEditClient" class="btn" style="background:#1b2b3b;color:#fff;" onclick="saveEditClient()">حفظ</button>
       </div>
     </div>
   </div>

@@ -27,10 +27,40 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer onload="initGSI()"></script>
   <style>
-    .wf-card   { max-width: 1060px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 32px rgba(0,0,0,.10); }
+    /* ── Workflow page colour theme ── */
+    :root {
+      --brand:       #c9922a;
+      --brand-2:     #2a8a82;
+      --brand-navy:  #1c2d3e;
+      --brand-light: #fdf3e0;
+    }
+    body { background: #edf2f7; }
+    .form-header {
+      background: linear-gradient(135deg, #1c2d3e 0%, #2a8a82 100%);
+      padding: 1.5rem 2rem;
+      text-align: center;
+    }
+    .form-header img { margin-inline: auto; }
+    .form-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+    .form-header p  { font-size: .85rem; opacity: .9; margin: .25rem 0 0; }
+    .form-footer {
+      background: var(--brand-navy);
+      padding: .9rem 2rem;
+      text-align: center;
+    }
+    .btn-submit:hover  { background: #a87a22; color:#fff; }
+    .btn-submit:active { background: #8e6519; color:#fff; }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--brand-2);
+      box-shadow: 0 0 0 .2rem rgba(42,138,130,.18);
+    }
+    /* ── Layout ── */
+    .wf-card   { max-width: 1200px; margin: 1.5rem auto; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 32px rgba(0,0,0,.08); background: #fff; }
     .wf-body   { background: #fff; padding: 1.5rem 2rem 2rem; }
-    .user-chip { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.15); border-radius:20px; padding:4px 14px; font-size:.85rem; }
-    .role-tag  { font-size:.7rem; background:rgba(255,255,255,.25); border-radius:10px; padding:2px 8px; }
+    .user-chip { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.18); border-radius:20px; padding:5px 14px; font-size:.82rem; position:absolute; top:14px; right:14px; }
+    .role-tag  { font-size:.68rem; background:rgba(255,255,255,.28); border-radius:10px; padding:2px 8px; }
+
+    #langToggle { position:absolute; top:14px; left:14px; }
 
     .sbadge              { font-family:'Cairo',sans-serif; font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
     .sbadge-new          { background:#e8f4f4; color:#0d6b6e; }
@@ -41,7 +71,7 @@
 
     .client-card       { border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; margin-bottom:.75rem; cursor:pointer; transition:box-shadow .15s; }
     .client-card:hover { box-shadow:0 2px 12px rgba(13,107,110,.15); }
-    .client-card.active{ border-color:var(--brand); box-shadow:0 0 0 2px rgba(13,107,110,.2); }
+    .client-card.active{ border-color:var(--brand-2); box-shadow:0 0 0 2px rgba(42,138,130,.2); }
     .count-chip        { font-size:.72rem; font-family:'Cairo',sans-serif; font-weight:700; padding:2px 8px; border-radius:10px; background:#e8f4f4; color:#0d6b6e; }
 
     .rows-table th  { font-size:.78rem; color:#6c757d; font-weight:600; }
@@ -56,18 +86,10 @@
     .back-btn       { font-family:'Cairo',sans-serif; font-size:.85rem; color:var(--brand); background:none; border:none; padding:0; cursor:pointer; }
     .back-btn:hover { text-decoration:underline; }
 
-    #headerControls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    #headerControls { display:contents; }
     @media (max-width: 576px) {
-      #headerControls { flex-direction: column; align-items: flex-start; gap: 6px; }
+      #langToggle  { top:10px; left:10px; }
+      .user-chip   { top:10px; right:10px; }
     }
   </style>
 </head>
@@ -435,9 +457,9 @@ function switchLang(lang) {
   var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
   document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
   document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
-  var tgl = document.getElementById('headerControls');
-  if (lang==='en') { tgl.style.left=''; tgl.style.right='10px'; }
-  else             { tgl.style.right=''; tgl.style.left='10px'; }
+  var tgl = document.getElementById('langToggle');
+  if (lang==='en') { tgl.style.left=''; tgl.style.right='14px'; }
+  else             { tgl.style.right=''; tgl.style.left='14px'; }
   if (typeof google!=='undefined' && google.accounts) {
     document.getElementById('googleSignInBtn').innerHTML = '';
     google.accounts.id.renderButton(document.getElementById('googleSignInBtn'),
