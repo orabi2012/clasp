@@ -304,12 +304,13 @@ function sendNewClientAdminEmail_(data, lang) {
            : 'قام عميل جديد بتعبئة نموذج التسجيل')}
     <div style="background:#ffffff;padding:24px 20px;border:1px solid #e8edf2;border-top:none;">
       ${infoCard_(isEn ? 'Client Details' : 'بيانات العميل', '#1a73e8', [
-        [isEn ? 'Name'       : 'الاسم',             data.name      || '—'],
-        [isEn ? 'Email'      : 'الايميل',            data.email     || '—'],
-        [isEn ? 'Phone'      : 'الهاتف',             data.phone     || '—'],
-        [isEn ? 'Tax Number' : 'الرقم الضريبي',      data.taxNumber || '—'],
-        [isEn ? 'CR Number'  : 'الرقم المميز',       data.crNumber  || '—'],
-        [isEn ? 'Language'   : 'اللغة',              data.lang      || 'ar']
+        [isEn ? 'Company Name'    : 'اسم الشركة',         data.name          || '—'],
+        [isEn ? 'Contact Person'  : 'اسم الشخص المسئول', data.contactPerson || '—'],
+        [isEn ? 'Email'           : 'الايميل',                    data.email         || '—'],
+        [isEn ? 'Phone'           : 'الهاتف',                    data.phone         || '—'],
+        [isEn ? 'Tax Number'      : 'الرقم الضريبي',           data.taxNumber     || '—'],
+        [isEn ? 'CR Number'       : 'الرقم المميز',              data.crNumber      || '—'],
+        [isEn ? 'Language'        : 'اللغة',                      data.lang          || 'ar']
       ])}
 
       ${portalUrl ? `<div style="text-align:center;margin:14px 0 4px;">

@@ -67,10 +67,17 @@
       <div class="section-label" data-i18n="secBasic">المعلومات الأساسية</div>
 
       <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblName">الاسم الكامل</span> <span class="required">*</span></label>
+        <label class="form-label"><span data-i18n="lblName">اسم الشركة</span> <span class="required">*</span></label>
         <input type="text" class="form-control" id="clientName"
-               data-i18n-placeholder="phName" placeholder="مثال: محمد عبدالله" required>
-        <div class="invalid-feedback" data-i18n="errName">الرجاء إدخال الاسم</div>
+               data-i18n-placeholder="phName" placeholder="مثال: شركة العمران للمقاولات" required>
+        <div class="invalid-feedback" data-i18n="errName">الرجاء إدخال اسم الشركة</div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label"><span data-i18n="lblContact">اسم الشخص المسئول</span> <span class="required">*</span></label>
+        <input type="text" class="form-control" id="contactPerson"
+               data-i18n-placeholder="phContact" placeholder="مثال: محمد عبدالله" required>
+        <div class="invalid-feedback" data-i18n="errContact">الرجاء إدخال اسم الشخص المسئول</div>
       </div>
 
       <div class="mb-3">
@@ -186,7 +193,8 @@
       successBtn:     'إرسال طلب جديد',
       secBasic:       'المعلومات الأساسية',
       secDates:       'التواريخ',
-      lblName:        'الاسم الكامل',
+      lblName:        'اسم الشركة',
+      lblContact:     'اسم الشخص المسئول',
       lblPhone:       'رقم الهاتف',
       lblEmail:       'البريد الإلكتروني',
       lblTax:         'الرقم الضريبي',
@@ -195,9 +203,11 @@
       lblD2:          'تاريخ السجل التجاري',
       lblD3:          'الإقرار الضريبي القادم',
       lblD4:          'الإقرار الزكوي القادم',
-      phName:         'مثال: محمد عبدالله',
+      phName:         'مثال: شركة العمران للمقاولات',
+      phContact:      'مثال: محمد عبدالله',
       phCR:           'الرقم المميز',
-      errName:        'الرجاء إدخال الاسم',
+      errName:        'الرجاء إدخال اسم الشركة',
+      errContact:     'الرجاء إدخال اسم الشخص المسئول',
       errPhone:       'الرجاء إدخال رقم الهاتف',
       errEmail:       'الرجاء إدخال البريد الإلكتروني',
       errTax:         'الرجاء إدخال الرقم الضريبي (15 رقماً)',
@@ -232,7 +242,8 @@
       successBtn:     'Submit New Request',
       secBasic:       'Basic Information',
       secDates:       'Dates',
-      lblName:        'Full Name',
+      lblName:        'Company Name',
+      lblContact:     'Contact Person',
       lblPhone:       'Phone Number',
       lblEmail:       'Email Address',
       lblTax:         'Tax Number',
@@ -241,9 +252,11 @@
       lblD2:          'Commercial Registration Date',
       lblD3:          'Next Tax Declaration',
       lblD4:          'Next Zakat Declaration',
-      phName:         'e.g. John Smith',
+      phName:         'e.g. ABC Trading Co.',
+      phContact:      'e.g. John Smith',
       phCR:           'CR Number',
-      errName:        'Please enter your name',
+      errName:        'Please enter the company name',
+      errContact:     'Please enter the contact person name',
       errPhone:       'Please enter your phone number',
       errEmail:       'Please enter your email',
       errTax:         'Please enter a valid 15-digit tax number',
@@ -372,10 +385,11 @@
     btn.textContent = t.btnSending;
 
     var data = {
-      lang:      LANG,
-      email:     document.getElementById('userEmail').value,
-      name:      document.getElementById('clientName').value,
-      phone:     document.getElementById('clientPhone').value,
+      lang:          LANG,
+      email:         document.getElementById('userEmail').value,
+      name:          document.getElementById('clientName').value,
+      contactPerson: document.getElementById('contactPerson').value,
+      phone:         document.getElementById('clientPhone').value,
       taxNumber: document.getElementById('taxNumber').value,
       crNumber:  document.getElementById('crNumber').value,
       taxType:   document.getElementById('taxType').value,

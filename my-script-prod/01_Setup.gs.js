@@ -2,7 +2,7 @@
 // 01_Setup.gs
 // Configuration constants & one-time setup
 // ============================================================
-//02:27am 2026-05-01
+//02:27am 2026-05-07
 // ── Drive Folder IDs ──────────────────────────────────────────
 const TEMPLATE_FOLDER_ID  = '1_1aY7qwmgYBj-WCCG3ROmbov-R6qcfMR';
 const CLIENTS_FOLDER_ID   = '1wSjD_NCkCzwH_aXKXhlGHxhftex2fLEx';
@@ -24,17 +24,18 @@ const WORKFLOW_AUDIT_SHEET_NAME = 'workflow_audit';
 
 // ── Column Indices (1-based) ──────────────────────────────────
 // Customers sheet
-const COL_NAME           = 3;  // C — client name
+const COL_NAME           = 3;  // C — company name
+const COL_CONTACT_PERSON = 4;  // D — contact person (اسم الشخص المسئول)
 const COL_EMAIL          = 2;  // B — client email
-const COL_LANG           = 11; // K — client language (ar/en)
-const COL_EMPLOYEE       = 12; // L — assigned employee
-const COL_FOLDER_URL     = 13; // M — client folder URL
-const COL_FOLDER_ID      = 14; // N — client folder ID
-const COL_PREV_EMPLOYEE  = 15; // O — previously assigned employee
-const COL_TAX_TYPE       = 16; // P — tax declaration type (Monthly/Quarter)
-const COL_IS_ACTIVE      = 17; // Q — active flag (TRUE or blank = active; FALSE = deactivated)
-const COL_DATE_TAX       = 9;  // I — next tax declaration date
-const COL_DATE_ZAKAT     = 10; // J — next zakat declaration date
+const COL_LANG           = 12; // L — client language (ar/en)
+const COL_EMPLOYEE       = 13; // M — assigned employee
+const COL_FOLDER_URL     = 14; // N — client folder URL
+const COL_FOLDER_ID      = 15; // O — client folder ID
+const COL_PREV_EMPLOYEE  = 16; // P — previously assigned employee
+const COL_TAX_TYPE       = 17; // Q — tax declaration type (Monthly/Quarter)
+const COL_IS_ACTIVE      = 18; // R — active flag (TRUE or blank = active; FALSE = deactivated)
+const COL_DATE_TAX       = 10; // J — next tax declaration date
+const COL_DATE_ZAKAT     = 11; // K — next zakat declaration date
 
 // Employees sheet
 const COL_EMP_NAME            = 1; // A — name
@@ -168,28 +169,32 @@ function setupHeaders() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
 
-  const NUM_COLS = 17;
+  const NUM_COLS = 18;
   const headerRow = sheet.getRange(1, 1, 1, NUM_COLS);
+
+  // ── Clear any existing validations on header row first ───
+  headerRow.clearDataValidations();
 
   // ── Write header labels ───────────────────────────────────
   headerRow.setValues([[
     'Timestamp',         // A
     'Email Address',     // B
-    'الاسم',            // C
-    'رقم الهاتف',       // D
-    'الرقم الضريبي',    // E
-    'الرقم المميز',     // F
-    'تاريخ اول اقرار ضريبي',              // G
-    'تاريخ السجل التجاري',                // H
-    'تاريخ تقديم الاقرار الضريبي القادم', // I
-    'تاريخ تقديم الاقرار الزكوي القادم',  // J
-    'lang',              // K - COL_LANG
-    'assined_employee',  // L - COL_EMPLOYEE
-    'folder_url',        // M - COL_FOLDER_URL
-    'folder_id',         // N - COL_FOLDER_ID
-    'prev_employee',     // O - COL_PREV_EMPLOYEE
-    'tax_type',          // P - COL_TAX_TYPE
-    'is_active'          // Q - COL_IS_ACTIVE
+    'اسم الشركة',        // C
+    'اسم الشخص المسئول', // D
+    'رقم الهاتف',       // E
+    'الرقم الضريبي',    // F
+    'الرقم المميز',      // G
+    'تاريخ اول اقرار ضريبي',              // H
+    'تاريخ السجل التجاري',                // I
+    'تاريخ تقديم الاقرار الضريبي القادم', // J
+    'تاريخ تقديم الاقرار الزكوي القادم',  // K
+    'lang',              // L - COL_LANG
+    'assined_employee',  // M - COL_EMPLOYEE
+    'folder_url',        // N - COL_FOLDER_URL
+    'folder_id',         // O - COL_FOLDER_ID
+    'prev_employee',     // P - COL_PREV_EMPLOYEE
+    'tax_type',          // Q - COL_TAX_TYPE
+    'is_active'          // R - COL_IS_ACTIVE
   ]]);
 
   // ── Header row styling ────────────────────────────────────
@@ -224,13 +229,14 @@ function setupHeaders() {
   // ── Data validations ─────────────────────────────────────
   const lastRow = totalRows - 1;
 
-  // lang column (K) → ar / en
+  // lang column (L) → ar / en
   try {
     var langRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['ar', 'en'], true)
       .setAllowInvalid(false)
       .build();
     sheet.getRange(2, COL_LANG, lastRow, 1).setDataValidation(langRule);
+    SpreadsheetApp.flush();
   } catch (e) {
     Logger.log('lang column already typed — skipping validation: ' + e.message);
   }
@@ -248,6 +254,7 @@ function setupHeaders() {
           .setAllowInvalid(false)
           .build();
         sheet.getRange(2, COL_EMPLOYEE, lastRow, 1).setDataValidation(empRule);
+        SpreadsheetApp.flush();
       } catch (e) {
         Logger.log('employee column already typed — skipping validation: ' + e.message);
       }
@@ -261,10 +268,11 @@ function setupHeaders() {
     .setHorizontalAlignment('center')
     .setFontSize(10);
 
-  // ── Checkbox for is_active column (Q) ────────────────────
+  // ── Checkbox for is_active column (R) ────────────────────
   try {
     sheet.getRange(2, COL_IS_ACTIVE, lastRow, 1)
       .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+    SpreadsheetApp.flush();
   } catch (e) {
     Logger.log('is_active column already typed as Checkbox — skipping validation: ' + e.message);
   }
@@ -349,8 +357,8 @@ function setupTriggers() {
     const hdrStyle = function(cell) {
       cell.setBackground('#1a73e8').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     };
-    try { hdrStyle(empSheet.getRange(1, COL_EMP_SUPERVISOR)); empSheet.getRange(1, COL_EMP_SUPERVISOR).setValue('المشرف'); } catch(e) { Logger.log('emp supervisor header: ' + e.message); }
-    try { hdrStyle(empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR)); empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR).setValue('prev_supervisor'); } catch(e) { Logger.log('emp prev_supervisor header: ' + e.message); }
+    try { hdrStyle(empSheet.getRange(1, COL_EMP_SUPERVISOR)); empSheet.getRange(1, COL_EMP_SUPERVISOR).setValue('المشرف'); SpreadsheetApp.flush(); } catch(e) { Logger.log('emp supervisor header: ' + e.message); }
+    try { hdrStyle(empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR)); empSheet.getRange(1, COL_EMP_PREV_SUPERVISOR).setValue('prev_supervisor'); SpreadsheetApp.flush(); } catch(e) { Logger.log('emp prev_supervisor header: ' + e.message); }
 
     // Dropdown for col E: sourced from supervisors sheet col A
     // Apply only to rows that already have data — new rows get it via onEdit.
@@ -368,6 +376,7 @@ function setupTriggers() {
             .setAllowInvalid(false)
             .build();
           empSheet.getRange(2, COL_EMP_SUPERVISOR, empLastRow - 1, 1).setDataValidation(supRule);
+          SpreadsheetApp.flush();
         } catch (e) {
           Logger.log('supervisor column already typed — skipping validation: ' + e.message);
         }
@@ -378,6 +387,9 @@ function setupTriggers() {
 
   // ── Ensure workflow + workflow_audit sheets exist ────────────
   ensureWorkflowSheets_(ss);
+
+  // ── Flush any remaining batched writes ────────────────────
+  try { SpreadsheetApp.flush(); } catch(e) { Logger.log('final flush error: ' + e.message); }
 
   Logger.log('Triggers ready');
 }

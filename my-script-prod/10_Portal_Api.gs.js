@@ -263,8 +263,8 @@ function submitClient(data) {
   if (!sheet) throw new Error('Sheet not found: ' + CUSTOMERS_SHEET_NAME);
   var lang = data.lang || 'ar';
   sheet.appendRow([
-    new Date(),    data.email,   data.name,     data.phone,
-    data.taxNumber, data.crNumber,
+    new Date(),    data.email,          data.name,     data.contactPerson || '',
+    data.phone,   data.taxNumber,       data.crNumber,
     data.date1,    data.date2,   data.date3,    data.date4,
     lang
   ]);
@@ -277,7 +277,7 @@ function submitClient(data) {
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
     .setFontWeight('bold').setHorizontalAlignment('center');
   var bg = newRow % 2 === 0 ? '#e8f0fe' : '#ffffff';
-  sheet.getRange(newRow, 1, 1, 17).setBackground(bg);
+  sheet.getRange(newRow, 1, 1, 18).setBackground(bg);
   langCell
     .setBackground(lang === 'ar' ? '#e8f0fe' : '#fce8e6')
     .setFontColor(lang === 'ar' ? '#1967d2' : '#c5221f')
