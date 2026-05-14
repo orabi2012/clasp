@@ -101,10 +101,8 @@
   <div class="form-header" style="position:relative;">
     <div id="headerControls">
       <div id="langToggle">
-        <button id="btn-ar" type="button" onclick="switchLang('ar')"
-          style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
-        <button id="btn-en" type="button" onclick="switchLang('en')"
-          style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+        <button id="langToggleBtn" type="button" onclick="toggleLang()"
+          style="background:rgba(13,107,110,0.85);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;backdrop-filter:blur(6px);font-weight:600;">English</button>
       </div>
       <div id="userChip" style="display:none;" class="user-chip">
         <span id="chipName"></span>
@@ -453,10 +451,7 @@ function switchLang(lang) {
     var k = el.getAttribute('data-i18n-placeholder');
     if (t[k] !== undefined) el.placeholder = t[k];
   });
-  var aS = "background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
-  var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
-  document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
-  document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
+  document.getElementById('langToggleBtn').textContent = lang==='ar' ? 'English' : 'العربية';
   var tgl = document.getElementById('langToggle');
   if (lang==='en') { tgl.style.left=''; tgl.style.right='14px'; }
   else             { tgl.style.right=''; tgl.style.left='14px'; }
@@ -466,6 +461,8 @@ function switchLang(lang) {
       { theme:'outline', size:'large', text:'signin_with', locale:t.gsiLocale, width:280 });
   }
 }
+
+function toggleLang() { switchLang(LANG==='ar' ? 'en' : 'ar'); }
 
 // ── Sections ─────────────────────────────────────────────────
 function showSection(id) {

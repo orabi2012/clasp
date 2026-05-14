@@ -90,10 +90,8 @@
         <a href="#" onclick="doLogout();return false;" data-logout style="color:rgba(255,255,255,.85);font-size:.72rem;margin-inline-start:6px;">خروج</a>
     </div>
     <div id="langToggle" style="position:absolute;top:14px;left:14px;">
-      <button id="btn-ar" type="button" onclick="switchLang('ar')"
-        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
-      <button id="btn-en" type="button" onclick="switchLang('en')"
-        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+      <button id="langToggleBtn" type="button" onclick="toggleLang()"
+        style="background:rgba(13,107,110,0.85);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;backdrop-filter:blur(6px);font-weight:600;">English</button>
     </div>
     <img class="brand-logo" src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
     <h1 id="adminH1">لوحة الإدارة</h1>
@@ -280,10 +278,7 @@
       google.accounts.id.renderButton(document.getElementById('googleSignInBtn'),
         { theme:'outline', size:'large', text:'signin_with', locale: lang==='ar' ? 'ar' : 'en', width:280 });
     }
-    var aS = "background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
-    var iS = "background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;";
-    document.getElementById('btn-ar').style.cssText = (lang==='ar'?aS:iS)+'border-radius:4px 0 0 4px;';
-    document.getElementById('btn-en').style.cssText = (lang==='en'?aS:iS)+'border-radius:0 4px 4px 0;';
+    document.getElementById('langToggleBtn').textContent = lang==='ar' ? 'English' : 'العربية';
     var tgl = document.getElementById('langToggle');
     var chip = document.getElementById('userChip');
     if (lang==='en') { tgl.style.left=''; tgl.style.right='14px'; if(chip){chip.style.right='';chip.style.left='14px';} }
@@ -291,6 +286,8 @@
     renderClients();
     renderPeople();
   }
+
+  function toggleLang() { switchLang(LANG==='ar' ? 'en' : 'ar'); }
 
   // Same web app + GIS client used by workflow.html
   const WEB_APP_URL   = 'https://script.google.com/macros/s/AKfycbwMR6qeHOz8wkfvFDiWFgQDHZ-62aQmuofyStxUnqqczmeLnskokuO_apIy1fcqWpNT/exec';

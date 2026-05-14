@@ -33,11 +33,9 @@
 
   <!-- Header -->
   <div class="form-header" style="position:relative;">
-    <div id="langToggle" style="position:absolute;top:14px;left:14px;">
-      <button id="btn-ar" type="button" onclick="switchLang('ar')"
-        style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:4px 0 0 4px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">العربية</button>
-      <button id="btn-en" type="button" onclick="switchLang('en')"
-        style="background:transparent;color:rgba(255,255,255,0.6);border:none;border-radius:0 4px 4px 0;padding:3px 10px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;">English</button>
+    <div id="langToggle" style="position:absolute;top:14px;left:14px;z-index:9999;">
+      <button id="langToggleBtn" type="button" onclick="toggleLang()"
+        style="background:rgba(13,107,110,0.85);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;backdrop-filter:blur(6px);font-weight:600;letter-spacing:.3px;">English</button>
     </div>
     <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
     <h1 data-i18n="headerTitle">نموذج تسجيل عميل جديد</h1>
@@ -295,10 +293,7 @@
       var key = el.getAttribute('data-i18n-placeholder');
       if (t[key] !== undefined) el.placeholder = t[key];
     });
-    var activeStyle   = 'background:rgba(255,255,255,0.25);color:#fff;border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:\'Cairo\',sans-serif;';
-    var inactiveStyle = 'background:transparent;color:rgba(255,255,255,0.6);border:none;padding:3px 10px;font-size:12px;cursor:pointer;font-family:\'Cairo\',sans-serif;';
-    document.getElementById('btn-ar').style.cssText = (lang === 'ar' ? activeStyle : inactiveStyle) + 'border-radius:4px 0 0 4px;';
-    document.getElementById('btn-en').style.cssText = (lang === 'en' ? activeStyle : inactiveStyle) + 'border-radius:0 4px 4px 0;';
+    document.getElementById('langToggleBtn').textContent = lang === 'ar' ? 'English' : 'العربية';
     var toggle = document.getElementById('langToggle');
     if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '14px'; }
     else               { toggle.style.right = ''; toggle.style.left = '14px'; }
@@ -310,6 +305,8 @@
       );
     }
   }
+
+  function toggleLang() { switchLang(LANG === 'ar' ? 'en' : 'ar'); }
 
   // ── Google Sign-In ──
   function onGoogleSignIn(response) {
