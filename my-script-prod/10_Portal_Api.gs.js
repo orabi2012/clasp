@@ -150,6 +150,7 @@ function doGet(e) {
   try {
     switch (action) {
       case 'me':            return ok_(roleInfo);
+      case 'client.me':     return handleClientMe_(caller);
       case 'listMyClients': return handleListMyClients_(roleInfo);
       case 'listRows':      return handleListRows_(params, roleInfo);
       case 'listPending':   return handleListPending_(params, roleInfo);
@@ -225,6 +226,67 @@ function doPost(e) {
     Logger.log('doPost error [' + body.action + ']: ' + ex.message);
     return err_(ex.message, 500);
   }
+}
+
+// ── Client portal: client.me ──────────────────────────────────
+
+/**
+ * Returns the authenticated client's profile and Drive folder links.
+ * If the email is not found in the customers sheet, returns { registered: false }.
+ */
+function handleClientMe_(caller) {
+  var ssId  = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  var ss    = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+
+  if (!sheet || sheet.getLastRow() < 2) return ok_({ registered: false });
+
+  var lc   = caller.email.toLowerCase().trim();
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if ((String(row[COL_EMAIL - 1] || '')).toLowerCase().trim() !== lc) continue;
+
+    var isActive   = row[COL_IS_ACTIVE - 1];
+    var folderId   = String(row[COL_FOLDER_ID - 1] || '').trim();
+    var folderUrl  = String(row[COL_FOLDER_URL - 1] || '').trim();
+    var empName    = String(row[COL_EMPLOYEE - 1] || '').trim();
+
+    // Resolve subfolder URLs from Drive when folder exists
+    var uploadsUrl = '';
+    var resultsUrl = '';
+    if (folderId) {
+      try {
+        var rootFolder = DriveApp.getFolderById(folderId);
+        var upIter = rootFolder.getFoldersByName(FOLDER_UPLOADS);
+        if (upIter.hasNext()) uploadsUrl = upIter.next().getUrl();
+        var reIter = rootFolder.getFoldersByName(FOLDER_RESULTS);
+        if (reIter.hasNext()) resultsUrl = reIter.next().getUrl();
+      } catch (e) {
+        Logger.log('handleClientMe_: Drive lookup failed: ' + e.message);
+      }
+    }
+
+    return ok_({
+      registered:      true,
+      active:          isActive !== false && isActive !== 'FALSE' && isActive !== false,
+      email:           String(row[COL_EMAIL - 1] || ''),
+      company:         String(row[COL_NAME - 1] || ''),
+      contact:         String(row[COL_CONTACT_PERSON - 1] || ''),
+      phone:           String(row[4] || ''),  // col E (index 4) — no named constant
+      taxType:         String(row[COL_TAX_TYPE - 1] || ''),
+      nextTaxDate:     row[COL_DATE_TAX - 1]   ? Utilities.formatDate(new Date(row[COL_DATE_TAX - 1]),   'Asia/Riyadh', 'yyyy-MM-dd') : '',
+      nextZakatDate:   row[COL_DATE_ZAKAT - 1] ? Utilities.formatDate(new Date(row[COL_DATE_ZAKAT - 1]), 'Asia/Riyadh', 'yyyy-MM-dd') : '',
+      language:        String(row[COL_LANG - 1] || 'ar'),
+      folderAssigned:  empName !== '',
+      folderUrl:       folderUrl,
+      uploadsUrl:      uploadsUrl,
+      resultsUrl:      resultsUrl
+    });
+  }
+
+  return ok_({ registered: false });
 }
 
 // ── Client-form handlers ───────────────────────────────────────

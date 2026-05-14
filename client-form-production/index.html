@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>نموذج تسجيل عميل جديد</title>
+  <title>بوابة عملاء Statix</title>
 
   <!-- Open Graph / Social sharing -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Statix">
-  <meta property="og:title" content="نموذج تسجيل عميل جديد">
-  <meta property="og:description" content="يرجى تعبئة جميع الحقول المطلوبة بدقة">
+  <meta property="og:title" content="بوابة عملاء Statix">
+  <meta property="og:description" content="سجّل دخولك بحساب Google للوصول إلى بوابة العملاء">
   <meta property="og:url" content="https://workflow.statix-sa.com/">
   <meta property="og:image" content="https://workflow.statix-sa.com/logo.jpeg">
   <meta property="og:image:secure_url" content="https://workflow.statix-sa.com/logo.jpeg">
@@ -17,8 +17,8 @@
   <meta property="og:image:alt" content="Statix">
   <meta property="og:locale" content="ar_SA">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="نموذج تسجيل عميل جديد">
-  <meta name="twitter:description" content="يرجى تعبئة جميع الحقول المطلوبة بدقة">
+  <meta name="twitter:title" content="بوابة عملاء Statix">
+  <meta name="twitter:description" content="سجّل دخولك بحساب Google للوصول إلى بوابة العملاء">
   <meta name="twitter:image" content="https://workflow.statix-sa.com/logo.jpeg">
   <link rel="icon" type="image/jpeg" href="/logo.jpeg">
 
@@ -26,164 +26,337 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    /* ── Login state card ── */
+    #loginState { text-align: center; padding: 2.5rem 1.5rem; }
+    #loginState .login-subtitle { color: #6c757d; margin-bottom: 2rem; font-size: .95rem; }
+    #loginGsiBtn { display: flex; justify-content: center; }
+
+    /* ── Loading spinner ── */
+    #loadingState { text-align: center; padding: 3rem 1.5rem; }
+    .spinner-ring {
+      display: inline-block; width: 48px; height: 48px;
+      border: 4px solid #e0e0e0; border-top-color: var(--brand-2, #2a8a82);
+      border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Dashboard ── */
+    #dashboardState { padding: 1.5rem; }
+    .dash-section { margin-bottom: 1.5rem; }
+    .dash-section-label {
+      font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--brand-2, #2a8a82);
+      border-bottom: 1px solid #e0f0f0; padding-bottom: .35rem;
+      margin-bottom: .9rem;
+    }
+    .dash-row { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .55rem; }
+    .dash-label { font-size: .8rem; color: #6c757d; min-width: 130px; flex-shrink: 0; }
+    .dash-value { font-size: .9rem; font-weight: 600; color: #1c2d3e; word-break: break-all; }
+    .dash-badge {
+      display: inline-block; padding: .2rem .65rem; border-radius: 20px;
+      font-size: .75rem; font-weight: 700; letter-spacing: .03em;
+    }
+    .badge-active   { background: #d1fae5; color: #065f46; }
+    .badge-inactive { background: #fee2e2; color: #991b1b; }
+    .badge-monthly  { background: #dbeafe; color: #1e40af; }
+    .badge-quarter  { background: #ede9fe; color: #5b21b6; }
+    .folder-btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .45rem 1rem; border-radius: 8px; font-size: .85rem;
+      font-weight: 600; text-decoration: none; border: none; cursor: pointer;
+      transition: opacity .15s;
+    }
+    .folder-btn:hover { opacity: .85; }
+    .folder-btn-primary { background: var(--brand-2, #2a8a82); color: #fff; }
+    .folder-btn-secondary { background: #e8f4f4; color: #0d6b6e; border: 1px solid #b2d8d8; }
+    .folder-grid { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .no-folder-note {
+      background: #fff9e6; border: 1px solid #fde68a; border-radius: 8px;
+      padding: .7rem 1rem; font-size: .85rem; color: #92400e;
+    }
+    .signout-btn {
+      background: none; border: 1px solid #cbd5e1; color: #64748b;
+      border-radius: 8px; padding: .4rem 1rem; font-size: .82rem;
+      cursor: pointer; font-family: 'Cairo', sans-serif;
+      transition: background .15s, color .15s;
+    }
+    .signout-btn:hover { background: #f1f5f9; }
+    .signout-btn-dark {
+      background: #1e293b; border-color: #1e293b; color: #f8fafc;
+    }
+    .signout-btn-dark:hover { background: #334155; border-color: #334155; }
+
+    /* ── Inactive blocked state ── */
+    #inactiveState { text-align: center; padding: 2.5rem 1.5rem; }
+    #inactiveState .inactive-icon { font-size: 2.5rem; margin-bottom: .5rem; }
+    #inactiveState h4 { color: #dc3545; }
+  </style>
 </head>
 <body>
 
 <div class="form-card">
 
-  <!-- Header -->
+  <!-- Shared header -->
   <div class="form-header" style="position:relative;">
     <div id="langToggle" style="position:absolute;top:14px;left:14px;z-index:9999;">
       <button id="langToggleBtn" type="button" onclick="toggleLang()"
         style="background:rgba(13,107,110,0.85);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;backdrop-filter:blur(6px);font-weight:600;letter-spacing:.3px;">English</button>
     </div>
     <img src="https://api.statix-sa.com/storage/logos/01KGES5RKAA6SVXNWR1QSDAC1M.png" alt="Statix">
-    <h1 data-i18n="headerTitle">نموذج تسجيل عميل جديد</h1>
-    <p data-i18n="headerSubtitle">يرجى تعبئة جميع الحقول المطلوبة بدقة</p>
+    <h1 id="headerTitle">بوابة عملاء Statix</h1>
+    <p id="headerSubtitle">سجّل دخولك بحساب Google للمتابعة</p>
   </div>
 
-  <!-- Duplicate error state -->
-  <div id="duplicateMsg" style="display:none;text-align:center;padding:2rem 1rem;">
-    <div style="font-size:2.5rem;">⚠️</div>
-    <h4 style="color:#dc3545;margin-top:.5rem;" data-i18n="dupTitle">البريد الإلكتروني مسجل مسبقاً</h4>
-    <p class="text-muted mt-2" data-i18n="dupBody">هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.</p>
+  <!-- ══════════════════════════════════════════════════════
+       STATE 1: Login
+       ══════════════════════════════════════════════════════ -->
+  <div id="loginState">
+    <p class="login-subtitle" id="loginHint">سجّل دخولك باستخدام حساب Google الخاص بك</p>
+    <div id="loginGsiBtn"></div>
   </div>
 
-  <!-- Success state -->
-  <div id="successMsg">
-    <div class="icon">✅</div>
-    <h4 data-i18n="successTitle">تم إرسال الطلب بنجاح</h4>
-    <p class="text-muted mt-2" data-i18n="successBody">شكراً لك، سنتواصل معك في أقرب وقت.</p>
-    <a href="#" onclick="resetForm()" class="btn btn-outline-secondary mt-3 px-4" data-i18n="successBtn">إرسال طلب جديد</a>
+  <!-- ══════════════════════════════════════════════════════
+       STATE 2: Loading (checking account)
+       ══════════════════════════════════════════════════════ -->
+  <div id="loadingState" style="display:none;">
+    <div class="spinner-ring"></div>
+    <p class="mt-3 text-muted" id="loadingText">جارٍ التحقق من حسابك…</p>
   </div>
 
-  <!-- Form body -->
-  <div class="form-body" id="formWrapper">
-    <form id="clientForm" novalidate>
+  <!-- ══════════════════════════════════════════════════════
+       STATE 3: Registration form (new client)
+       ══════════════════════════════════════════════════════ -->
+  <div id="registerState" style="display:none;">
 
-      <!-- ── Basic info ── -->
-      <div class="section-label" data-i18n="secBasic">المعلومات الأساسية</div>
+    <div style="text-align:center;padding:.75rem 1rem .25rem;border-bottom:1px solid #e9ecef;margin-bottom:.5rem;">
+      <button id="regChangeAccountBtn" class="signout-btn signout-btn-dark" onclick="signOut()">↩ تسجيل الدخول بحساب آخر</button>
+    </div>
 
-      <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblName">اسم الشركة</span> <span class="required">*</span></label>
-        <input type="text" class="form-control" id="clientName"
-               data-i18n-placeholder="phName" placeholder="مثال: شركة العمران للمقاولات" required>
-        <div class="invalid-feedback" data-i18n="errName">الرجاء إدخال اسم الشركة</div>
-      </div>
+    <!-- Duplicate error -->
+    <div id="duplicateMsg" style="display:none;text-align:center;padding:2rem 1rem;">
+      <div style="font-size:2.5rem;">⚠️</div>
+      <h4 style="color:#dc3545;margin-top:.5rem;" data-i18n="dupTitle">البريد الإلكتروني مسجل مسبقاً</h4>
+      <p class="text-muted mt-2" data-i18n="dupBody">هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.</p>
+    </div>
 
-      <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblContact">اسم الشخص المسئول</span> <span class="required">*</span></label>
-        <input type="text" class="form-control" id="contactPerson"
-               data-i18n-placeholder="phContact" placeholder="مثال: محمد عبدالله" required>
-        <div class="invalid-feedback" data-i18n="errContact">الرجاء إدخال اسم الشخص المسئول</div>
-      </div>
+    <!-- Success -->
+    <div id="successMsg" style="display:none;text-align:center;padding:2rem 1rem;">
+      <div class="icon">✅</div>
+      <h4 data-i18n="successTitle">تم إرسال الطلب بنجاح</h4>
+      <p class="text-muted mt-2" data-i18n="successBody">شكراً لك، سنتواصل معك في أقرب وقت.</p>
+      <a href="#" onclick="resetForm()" class="btn btn-outline-secondary mt-3 px-4" data-i18n="successBtn">إرسال طلب جديد</a>
+    </div>
 
-      <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblPhone">رقم الهاتف</span> <span class="required">*</span></label>
-        <input type="tel" class="form-control" id="clientPhone"
-               placeholder="05xxxxxxxx" dir="ltr" required>
-        <div class="invalid-feedback" data-i18n="errPhone">الرجاء إدخال رقم الهاتف</div>
-      </div>
+    <!-- Form body -->
+    <div class="form-body" id="formWrapper">
+      <form id="clientForm" novalidate>
 
-      <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblEmail">البريد الإلكتروني</span> <span class="required">*</span></label>
-        <!-- Hidden real input -->
-        <input type="email" class="form-control" id="userEmail" placeholder="example@gmail.com" dir="ltr" required style="display:none;">
-        <!-- GSI button (shown before sign-in) -->
-        <div id="gsiWrap" style="display:flex;justify-content:center;margin-top:.5rem;">
-          <div id="googleSignInBtn" class="mb-1"></div>
+        <!-- ── Basic info ── -->
+        <div class="section-label" data-i18n="secBasic">المعلومات الأساسية</div>
+
+        <div class="mb-3">
+          <label class="form-label"><span data-i18n="lblName">اسم الشركة</span> <span class="required">*</span></label>
+          <input type="text" class="form-control" id="clientName"
+                 data-i18n-placeholder="phName" placeholder="مثال: شركة العمران للمقاولات" required>
+          <div class="invalid-feedback" data-i18n="errName">الرجاء إدخال اسم الشركة</div>
         </div>
-        <!-- Email badge (shown after sign-in) -->
-        <div id="emailBadge" style="display:none;align-items:center;gap:8px;background:#f0f4f4;border:1px solid #cde;border-radius:8px;padding:8px 12px;">
-          <span style="font-size:1rem;">✉️</span>
-          <span id="emailBadgeText" style="font-size:0.9rem;font-weight:600;color:#2d3748;direction:ltr;"></span>
-          <a href="#" onclick="clearEmail(); return false;" style="margin-inline-start:auto;font-size:0.75rem;color:#0d6b6e;" data-i18n="changeEmail">تغيير</a>
+
+        <div class="mb-3">
+          <label class="form-label"><span data-i18n="lblContact">اسم الشخص المسئول</span> <span class="required">*</span></label>
+          <input type="text" class="form-control" id="contactPerson"
+                 data-i18n-placeholder="phContact" placeholder="مثال: محمد عبدالله" required>
+          <div class="invalid-feedback" data-i18n="errContact">الرجاء إدخال اسم الشخص المسئول</div>
         </div>
-        <div class="invalid-feedback" data-i18n="errEmail">الرجاء إدخال البريد الإلكتروني</div>
+
+        <div class="mb-3">
+          <label class="form-label"><span data-i18n="lblPhone">رقم الهاتف</span> <span class="required">*</span></label>
+          <input type="tel" class="form-control" id="clientPhone"
+                 placeholder="05xxxxxxxx" dir="ltr" required>
+          <div class="invalid-feedback" data-i18n="errPhone">الرجاء إدخال رقم الهاتف</div>
+        </div>
+
+        <!-- Email — pre-filled from Google sign-in, read-only -->
+        <div class="mb-3">
+          <label class="form-label"><span data-i18n="lblEmail">البريد الإلكتروني</span> <span class="required">*</span></label>
+          <div style="display:flex;align-items:center;gap:8px;background:#f0f4f4;border:1px solid #cde;border-radius:8px;padding:8px 12px;">
+            <span style="font-size:1rem;">✉️</span>
+            <span id="regEmailDisplay" style="font-size:0.9rem;font-weight:600;color:#2d3748;direction:ltr;"></span>
+          </div>
+          <input type="email" class="form-control" id="userEmail" required style="display:none;">
+          <div class="invalid-feedback" data-i18n="errEmail">الرجاء إدخال البريد الإلكتروني</div>
+        </div>
+
+        <div class="row g-3 mb-1">
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblTax">الرقم الضريبي</span> <span class="required">*</span></label>
+            <input type="text" class="form-control" id="taxNumber"
+                   placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required pattern="[0-9]{15}" maxlength="15">
+            <div class="invalid-feedback" data-i18n="errTax">الرجاء إدخال الرقم الضريبي (15 رقماً)</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblCR">الرقم المميز</span> <span class="required">*</span></label>
+            <input type="text" class="form-control" id="crNumber"
+                   data-i18n-placeholder="phCR" placeholder="الرقم المميز" dir="ltr" required pattern="[0-9]{10}" maxlength="10" readonly style="background:#f8f9fa;cursor:default;">
+            <div class="invalid-feedback" data-i18n="errCR">الرجاء إدخال الرقم الضريبي أولاً</div>
+          </div>
+        </div>
+
+        <!-- ── Tax Declaration Type ── -->
+        <div class="mb-3">
+          <label class="form-label"><span data-i18n="lblTaxType">نوع الإقرار الضريبي</span> <span class="required">*</span></label>
+          <select class="form-select" id="taxType" required>
+            <option value="" data-i18n="phTaxType">-- اختر النوع --</option>
+            <option value="Monthly" data-i18n="optMonthly">شهري</option>
+            <option value="Quarter" data-i18n="optQuarter">ربع سنوي</option>
+          </select>
+          <div class="invalid-feedback" data-i18n="errTaxType">الرجاء اختيار نوع الإقرار</div>
+        </div>
+
+        <!-- ── Dates ── -->
+        <div class="section-label" data-i18n="secDates">التواريخ</div>
+
+        <div class="row g-3 mb-1">
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblD1">تاريخ أول إقرار ضريبي</span> <span class="required">*</span></label>
+            <input type="date" class="form-control" id="d1" dir="ltr" required>
+            <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblD2">تاريخ السجل التجاري</span> <span class="required">*</span></label>
+            <input type="date" class="form-control" id="d2" dir="ltr" required>
+            <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblD3">الإقرار الضريبي القادم</span> <span class="required">*</span></label>
+            <input type="date" class="form-control" id="d3" dir="ltr" required>
+            <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label"><span data-i18n="lblD4">الإقرار الزكوي القادم</span> <span class="required">*</span></label>
+            <input type="date" class="form-control" id="d4" dir="ltr" required>
+            <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit" class="btn btn-submit" id="submitBtn" data-i18n="btnSubmit">إرسال الطلب</button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Footer (register state) -->
+    <div class="form-footer">
+      <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
+      &nbsp;·&nbsp; <span data-i18n="footerNote">جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية</span>
+    </div>
+  </div><!-- /#registerState -->
+
+  <!-- ══════════════════════════════════════════════════════
+       STATE 4: Client Dashboard (existing + active)
+       ══════════════════════════════════════════════════════ -->
+  <div id="dashboardState" style="display:none;">
+    <div class="dash-section">
+      <div class="dash-section-label" id="dashSecInfo">معلومات الحساب</div>
+
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblCompany">اسم الشركة</span>
+        <span class="dash-value" id="dashCompany">—</span>
       </div>
-
-      <div class="row g-3 mb-1">
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblTax">الرقم الضريبي</span> <span class="required">*</span></label>
-          <input type="text" class="form-control" id="taxNumber"
-                 placeholder="3xxxxxxxxxxxxxxxxx" dir="ltr" required pattern="[0-9]{15}" maxlength="15">
-          <div class="invalid-feedback" data-i18n="errTax">الرجاء إدخال الرقم الضريبي (15 رقماً)</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblCR">الرقم المميز</span> <span class="required">*</span></label>
-          <input type="text" class="form-control" id="crNumber"
-                 data-i18n-placeholder="phCR" placeholder="الرقم المميز" dir="ltr" required pattern="[0-9]{10}" maxlength="10" readonly style="background:#f8f9fa;cursor:default;">
-          <div class="invalid-feedback" data-i18n="errCR">الرجاء إدخال الرقم الضريبي أولاً</div>
-        </div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblContact">الشخص المسئول</span>
+        <span class="dash-value" id="dashContact">—</span>
       </div>
-
-      <!-- ── Tax Declaration Type ── -->
-      <div class="mb-3">
-        <label class="form-label"><span data-i18n="lblTaxType">نوع الإقرار الضريبي</span> <span class="required">*</span></label>
-        <select class="form-select" id="taxType" required>
-          <option value="" data-i18n="phTaxType">-- اختر النوع --</option>
-          <option value="Monthly" data-i18n="optMonthly">شهري</option>
-          <option value="Quarter" data-i18n="optQuarter">ربع سنوي</option>
-        </select>
-        <div class="invalid-feedback" data-i18n="errTaxType">الرجاء اختيار نوع الإقرار</div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblPhone">الهاتف</span>
+        <span class="dash-value" id="dashPhone" dir="ltr">—</span>
       </div>
-
-      <!-- ── Dates ── -->
-      <div class="section-label" data-i18n="secDates">التواريخ</div>
-
-      <div class="row g-3 mb-1">
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblD1">تاريخ أول إقرار ضريبي</span> <span class="required">*</span></label>
-          <input type="date" class="form-control" id="d1" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblD2">تاريخ السجل التجاري</span> <span class="required">*</span></label>
-          <input type="date" class="form-control" id="d2" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDatePast">يجب أن يكون التاريخ في الماضي</div>
-        </div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblEmail">البريد الإلكتروني</span>
+        <span class="dash-value" id="dashEmail" dir="ltr">—</span>
       </div>
-
-      <div class="row g-3 mt-0">
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblD3">الإقرار الضريبي القادم</span> <span class="required">*</span></label>
-          <input type="date" class="form-control" id="d3" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label"><span data-i18n="lblD4">الإقرار الزكوي القادم</span> <span class="required">*</span></label>
-          <input type="date" class="form-control" id="d4" dir="ltr" required>
-          <div class="invalid-feedback" data-i18n="errDateFuture">يجب أن يكون التاريخ في المستقبل</div>
-        </div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblStatus">الحالة</span>
+        <span id="dashStatus" class="dash-badge badge-active">—</span>
       </div>
-
-      <div class="mt-4">
-        <button type="submit" class="btn btn-submit" id="submitBtn" data-i18n="btnSubmit">إرسال الطلب</button>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblTaxType">نوع الإقرار</span>
+        <span id="dashTaxType" class="dash-badge badge-monthly">—</span>
       </div>
+    </div>
 
-    </form>
-  </div>
+    <div class="dash-section">
+      <div class="dash-section-label" id="dashSecDates">المواعيد القادمة</div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblNextTax">الإقرار الضريبي</span>
+        <span class="dash-value" id="dashNextTax" dir="ltr">—</span>
+      </div>
+      <div class="dash-row">
+        <span class="dash-label" id="dashLblNextZakat">الإقرار الزكوي</span>
+        <span class="dash-value" id="dashNextZakat" dir="ltr">—</span>
+      </div>
+    </div>
 
-  <!-- Footer -->
-  <div class="form-footer">
+    <div class="dash-section" id="dashFolderSection">
+      <div class="dash-section-label" id="dashSecFolders">مجلدات Google Drive</div>
+      <!-- Shown when employee assigned -->
+      <div id="dashFolderLinks" style="display:none;" class="folder-grid">
+        <a id="dashFolderUploads" class="folder-btn folder-btn-primary" href="#" target="_blank" rel="noopener">📤 <span id="dashFolderUploadsLbl">رفع الملفات</span></a>
+        <a id="dashFolderResults" class="folder-btn folder-btn-secondary" href="#" target="_blank" rel="noopener">📥 <span id="dashFolderResultsLbl">النتائج</span></a>
+      </div>
+      <!-- Shown when no employee assigned yet -->
+      <div id="dashNoFolder" class="no-folder-note" style="display:none;">
+        <span id="dashNoFolderText">🕐 جارٍ إعداد حسابك، ستتوفر الروابط بعد تعيين المحاسب المسئول.</span>
+      </div>
+    </div>
+
+    <div style="margin-top:1.5rem;border-top:1px solid #eee;padding-top:1rem;display:flex;justify-content:flex-end;">
+      <button class="signout-btn signout-btn-dark" onclick="signOut()" id="dashSignOutBtn">تسجيل الخروج</button>
+    </div>
+  </div><!-- /#dashboardState -->
+
+  <!-- ══════════════════════════════════════════════════════
+       STATE 5: Inactive / Suspended
+       ══════════════════════════════════════════════════════ -->
+  <div id="inactiveState" style="display:none;">
+    <div class="inactive-icon">🔒</div>
+    <h4 id="inactiveTitle">الحساب موقوف</h4>
+    <p class="text-muted mt-2" id="inactiveBody">تم إيقاف حسابك مؤقتاً. يرجى التواصل مع فريق Statix للمساعدة.</p>
+    <a href="mailto:support@statix-sa.com" class="btn btn-outline-secondary mt-3 px-4" id="inactiveContact">تواصل مع الدعم</a>
+    <div style="margin-top:1rem;">
+      <button class="signout-btn signout-btn-dark" onclick="signOut()" id="inactiveSignOutBtn">تسجيل الخروج</button>
+    </div>
+  </div><!-- /#inactiveState -->
+
+  <!-- Shared footer -->
+  <div class="form-footer" id="sharedFooter">
     <a href="https://statix-sa.com/ar" target="_blank">statix-sa.com</a>
-    &nbsp;·&nbsp; <span data-i18n="footerNote">جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية</span>
   </div>
 
-</div>
+</div><!-- /.form-card -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMR6qeHOz8wkfvFDiWFgQDHZ-62aQmuofyStxUnqqczmeLnskokuO_apIy1fcqWpNT/exec';
+  var GSI_CLIENT_ID   = '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com';
   var LANG = 'ar';
+  var _idToken = null;   // stores the raw GIS credential for API calls
 
+  // ── i18n strings ──────────────────────────────────────────────
   var T = {
     ar: {
       dir: 'rtl', htmlLang: 'ar',
       bootstrapCss:   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css',
-      pageTitle:      'نموذج تسجيل عميل جديد',
-      headerTitle:    'نموذج تسجيل عميل جديد',
-      headerSubtitle: 'يرجى تعبئة جميع الحقول المطلوبة بدقة',
+      pageTitle:      'بوابة عملاء Statix',
+      headerTitle:    'بوابة عملاء Statix',
+      headerSubtitle: 'سجّل دخولك بحساب Google للمتابعة',
+      loginHint:      'سجّل دخولك باستخدام حساب Google الخاص بك',
+      loadingText:    'جارٍ التحقق من حسابك…',
       dupTitle:       'البريد الإلكتروني مسجل مسبقاً',
       dupBody:        'هذا البريد الإلكتروني موجود في قاعدة البيانات. يرجى التواصل مع فريق Statix إن كنت تحتاج مساعدة.',
       successTitle:   'تم إرسال الطلب بنجاح',
@@ -210,7 +383,6 @@
       errEmail:       'الرجاء إدخال البريد الإلكتروني',
       errTax:         'الرجاء إدخال الرقم الضريبي (15 رقماً)',
       errCR:          'الرجاء إدخال الرقم المميز (10 أرقام)',
-      errDate:        'الرجاء تحديد التاريخ',
       errDatePast:    'يجب أن يكون التاريخ في الماضي',
       errDateFuture:  'يجب أن يكون التاريخ في المستقبل',
       lblTaxType:     'نوع الإقرار الضريبي',
@@ -221,18 +393,44 @@
       btnSubmit:      'إرسال الطلب',
       btnSending:     'جارٍ الإرسال…',
       footerNote:     'جميع الحقول المشار إليها بـ <span style="color:#f87171">*</span> إلزامية',
-      enterManually:  'أو أدخل بريدك يدوياً',
-      changeEmail:    'تغيير',
       gsiLocale:      'ar',
       alertError:     'حدث خطأ أثناء الإرسال: ',
-      alertCheck:     'حدث خطأ في التحقق: '
+      alertCheck:     'حدث خطأ في التحقق: ',
+      alertLookup:    'تعذّر التحقق من الحساب. يرجى المحاولة مجدداً.',
+      // Dashboard
+      dashSecInfo:        'معلومات الحساب',
+      dashLblCompany:     'اسم الشركة',
+      dashLblContact:     'الشخص المسئول',
+      dashLblPhone:       'الهاتف',
+      dashLblEmail:       'البريد الإلكتروني',
+      dashLblStatus:      'الحالة',
+      dashLblTaxType:     'نوع الإقرار',
+      dashStatusActive:   'نشط',
+      dashTaxMonthly:     'شهري',
+      dashTaxQuarter:     'ربع سنوي',
+      dashSecDates:       'المواعيد القادمة',
+      dashLblNextTax:     'الإقرار الضريبي',
+      dashLblNextZakat:   'الإقرار الزكوي',
+      dashSecFolders:     'مجلدات Google Drive',
+      dashFolderUploadsLbl: 'رفع الملفات',
+      dashFolderResultsLbl: 'النتائج',
+      dashNoFolderText:   '🕐 جارٍ إعداد حسابك، ستتوفر الروابط بعد تعيين المحاسب المسئول.',
+      dashSignOutBtn:     'تسجيل الخروج',
+      regChangeAccountBtn: '↩ تسجيل الدخول بحساب آخر',
+      // Inactive state
+      inactiveTitle:   'الحساب موقوف',
+      inactiveBody:    'تم إيقاف حسابك مؤقتاً. يرجى التواصل مع فريق Statix للمساعدة.',
+      inactiveContact: 'تواصل مع الدعم',
+      inactiveSignOutBtn: 'تسجيل الخروج'
     },
     en: {
       dir: 'ltr', htmlLang: 'en',
       bootstrapCss:   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
-      pageTitle:      'New Client Registration',
-      headerTitle:    'New Client Registration',
-      headerSubtitle: 'Please fill in all required fields accurately',
+      pageTitle:      'Statix Client Portal',
+      headerTitle:    'Statix Client Portal',
+      headerSubtitle: 'Sign in with Google to continue',
+      loginHint:      'Sign in using your Google account',
+      loadingText:    'Checking your account…',
       dupTitle:       'Email Already Registered',
       dupBody:        'This email address already exists in our records. Please contact the Statix team if you need assistance.',
       successTitle:   'Request Submitted Successfully',
@@ -259,7 +457,6 @@
       errEmail:       'Please enter your email',
       errTax:         'Please enter a valid 15-digit tax number',
       errCR:          'Please enter a valid 10-digit CR number',
-      errDate:        'Please select a date',
       errDatePast:    'Date must be in the past',
       errDateFuture:  'Date must be in the future',
       lblTaxType:     'Tax Declaration Type',
@@ -270,21 +467,62 @@
       btnSubmit:      'Submit Request',
       btnSending:     'Sending…',
       footerNote:     'All fields marked with <span style="color:#f87171">*</span> are required',
-      enterManually:  'Or enter your email manually',
-      changeEmail:    'Change',
       gsiLocale:      'en',
       alertError:     'An error occurred while submitting: ',
-      alertCheck:     'An error occurred during validation: '
+      alertCheck:     'An error occurred during validation: ',
+      alertLookup:    'Could not verify your account. Please try again.',
+      // Dashboard
+      dashSecInfo:        'Account Information',
+      dashLblCompany:     'Company',
+      dashLblContact:     'Contact Person',
+      dashLblPhone:       'Phone',
+      dashLblEmail:       'Email',
+      dashLblStatus:      'Status',
+      dashLblTaxType:     'Declaration Type',
+      dashStatusActive:   'Active',
+      dashTaxMonthly:     'Monthly',
+      dashTaxQuarter:     'Quarterly',
+      dashSecDates:       'Upcoming Deadlines',
+      dashLblNextTax:     'Tax Declaration',
+      dashLblNextZakat:   'Zakat Declaration',
+      dashSecFolders:     'Google Drive Folders',
+      dashFolderUploadsLbl: 'Upload Files',
+      dashFolderResultsLbl: 'Results',
+      dashNoFolderText:   '🕐 Your account is being prepared. Folder links will appear once an accountant is assigned.',
+      dashSignOutBtn:     'Sign Out',
+      regChangeAccountBtn: '↩ Sign in with a different account',
+      // Inactive state
+      inactiveTitle:   'Account Suspended',
+      inactiveBody:    'Your account has been temporarily suspended. Please contact the Statix team for assistance.',
+      inactiveContact: 'Contact Support',
+      inactiveSignOutBtn: 'Sign Out'
     }
   };
 
-  function switchLang(lang) {
+  // ── Language helpers ───────────────────────────────────────────
+  function applyLang(lang) {
     LANG = lang;
     var t = T[lang];
     document.documentElement.lang = t.htmlLang;
     document.documentElement.dir  = t.dir;
     document.getElementById('bootstrap-css').href = t.bootstrapCss;
     document.title = t.pageTitle;
+    // Update all id-keyed elements
+    var ids = [
+      'headerTitle','headerSubtitle','loginHint','loadingText',
+      'dashSecInfo','dashLblCompany','dashLblContact','dashLblPhone',
+      'dashLblEmail','dashLblStatus','dashLblTaxType',
+      'dashSecDates','dashLblNextTax','dashLblNextZakat',
+      'dashSecFolders','dashFolderUploadsLbl','dashFolderResultsLbl',
+      'dashNoFolderText','dashSignOutBtn',
+      'inactiveTitle','inactiveBody','inactiveContact','inactiveSignOutBtn',
+      'regChangeAccountBtn'
+    ];
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && t[id] !== undefined) el.innerHTML = t[id];
+    });
+    // data-i18n elements (registration form)
     document.querySelectorAll('[data-i18n]').forEach(function(el) {
       var key = el.getAttribute('data-i18n');
       if (t[key] !== undefined) el.innerHTML = t[key];
@@ -293,58 +531,167 @@
       var key = el.getAttribute('data-i18n-placeholder');
       if (t[key] !== undefined) el.placeholder = t[key];
     });
-    document.getElementById('langToggleBtn').textContent = lang === 'ar' ? 'English' : 'العربية';
+    var btn = document.getElementById('langToggleBtn');
+    if (btn) btn.textContent = lang === 'ar' ? 'English' : 'العربية';
     var toggle = document.getElementById('langToggle');
-    if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '14px'; }
-    else               { toggle.style.right = ''; toggle.style.left = '14px'; }
+    if (toggle) {
+      if (lang === 'en') { toggle.style.left = ''; toggle.style.right = '14px'; }
+      else               { toggle.style.right = ''; toggle.style.left = '14px'; }
+    }
+    // Re-render GSI button for correct locale
     if (typeof google !== 'undefined' && google.accounts) {
-      document.getElementById('googleSignInBtn').innerHTML = '';
-      google.accounts.id.renderButton(
-        document.getElementById('googleSignInBtn'),
-        { theme: 'outline', size: 'large', text: 'signin_with', locale: t.gsiLocale, width: 280 }
-      );
+      renderGsiButton(lang);
     }
   }
 
+  function switchLang(lang) { applyLang(lang); }
   function toggleLang() { switchLang(LANG === 'ar' ? 'en' : 'ar'); }
 
-  // ── Google Sign-In ──
-  function onGoogleSignIn(response) {
-    var payload = JSON.parse(atob(response.credential.split('.')[1]));
-    setEmail(payload.email || '');
+  // ── State helpers ──────────────────────────────────────────────
+  var STATES = ['loginState','loadingState','registerState','dashboardState','inactiveState'];
+  function showState(id) {
+    STATES.forEach(function(s) {
+      document.getElementById(s).style.display = (s === id) ? '' : 'none';
+    });
   }
 
-  function setEmail(email) {
-    var field = document.getElementById('userEmail');
-    field.value = email;
-    document.getElementById('emailBadgeText').textContent = email;
-    document.getElementById('gsiWrap').style.display   = 'none';
-    document.getElementById('emailBadge').style.display = 'flex';
-    field.style.display = 'none';
+  // ── GSI ────────────────────────────────────────────────────────
+  function renderGsiButton(lang) {
+    var wrap = document.getElementById('loginGsiBtn');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    google.accounts.id.renderButton(wrap, {
+      theme: 'outline', size: 'large', text: 'signin_with',
+      locale: T[lang || LANG].gsiLocale, width: 280
+    });
   }
 
-  function clearEmail() {
-    var field = document.getElementById('userEmail');
-    field.value = '';
-    field.style.display = 'none';
-    document.getElementById('emailBadge').style.display = 'none';
-    document.getElementById('gsiWrap').style.display    = '';
+  /**
+   * Called by GSI after the user picks their account.
+   * This is the main entry point for the auth flow.
+   */
+  function handleCredentialResponse(response) {
+    _idToken = response.credential;
+    showState('loadingState');
+
+    fetch(APPS_SCRIPT_URL + '?action=client.me&id_token=' + encodeURIComponent(_idToken))
+      .then(function(res) {
+        return res.text().then(function(txt) {
+          try { return JSON.parse(txt); }
+          catch (e) { throw new Error('Invalid response (status ' + res.status + '): ' + txt.substring(0, 200)); }
+        });
+      })
+      .then(function(resp) {
+        if (!resp.ok) throw new Error(resp.error || 'lookup failed');
+        var d = resp.data;
+
+        if (!d.registered) {
+          // New client — show registration form
+          var payload = JSON.parse(atob(_idToken.split('.')[1]));
+          prefillRegEmail(payload.email || '');
+          showState('registerState');
+          return;
+        }
+
+        if (!d.active) {
+          // Existing but deactivated
+          showState('inactiveState');
+          return;
+        }
+
+        // Existing + active — show dashboard
+        populateDashboard(d);
+        showState('dashboardState');
+      })
+      .catch(function(err) {
+        // Fall back to login state with the actual error
+        console.error('client.me error:', err);
+        showState('loginState');
+        alert(T[LANG].alertLookup + '\n\n' + (err && err.message ? err.message : err));
+      });
   }
 
+  function prefillRegEmail(email) {
+    document.getElementById('userEmail').value = email;
+    document.getElementById('regEmailDisplay').textContent = email;
+  }
+
+  // ── Dashboard population ───────────────────────────────────────
+  function populateDashboard(d) {
+    var t = T[d.language && T[d.language] ? d.language : LANG];
+    // Switch page language to client's stored preference
+    applyLang(d.language && T[d.language] ? d.language : LANG);
+
+    setText('dashCompany',    d.company    || '—');
+    setText('dashContact',    d.contact    || '—');
+    setText('dashPhone',      d.phone      || '—');
+    setText('dashEmail',      d.email      || '—');
+    setText('dashNextTax',    formatDate(d.nextTaxDate)   || '—');
+    setText('dashNextZakat',  formatDate(d.nextZakatDate) || '—');
+
+    var statusEl = document.getElementById('dashStatus');
+    statusEl.textContent  = t.dashStatusActive;
+    statusEl.className    = 'dash-badge badge-active';
+
+    var taxEl = document.getElementById('dashTaxType');
+    if (d.taxType === 'Monthly') {
+      taxEl.textContent = t.dashTaxMonthly;
+      taxEl.className   = 'dash-badge badge-monthly';
+    } else {
+      taxEl.textContent = t.dashTaxQuarter;
+      taxEl.className   = 'dash-badge badge-quarter';
+    }
+
+    // Drive folders
+    if (d.folderAssigned) {
+      if (d.uploadsUrl)  document.getElementById('dashFolderUploads').href = d.uploadsUrl;
+      if (d.resultsUrl)  document.getElementById('dashFolderResults').href = d.resultsUrl;
+      // Hide buttons that have no URL yet
+      document.getElementById('dashFolderUploads').style.display = d.uploadsUrl ? '' : 'none';
+      document.getElementById('dashFolderResults').style.display = d.resultsUrl ? '' : 'none';
+      document.getElementById('dashFolderLinks').style.display = '';
+      document.getElementById('dashNoFolder').style.display    = 'none';
+    } else {
+      document.getElementById('dashFolderLinks').style.display = 'none';
+      document.getElementById('dashNoFolder').style.display    = '';
+    }
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    var d = new Date(str);
+    if (isNaN(d)) return str;
+    return d.toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  // ── Sign-out ───────────────────────────────────────────────────
+  function signOut() {
+    _idToken = null;
+    if (typeof google !== 'undefined' && google.accounts) {
+      google.accounts.id.disableAutoSelect();
+    }
+    showState('loginState');
+    applyLang('ar');   // reset to default language on sign-out
+  }
+
+  // ── Initialise ─────────────────────────────────────────────────
   window.addEventListener('load', function() {
-    // ── Date constraints ──
-    var today     = new Date();
-    var todayStr  = today.toISOString().split('T')[0];
-    var yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    // Date constraints for registration form
+    var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
     var yesterStr = yesterday.toISOString().split('T')[0];
-    var tomorrow  = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+    var tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     var tmrwStr   = tomorrow.toISOString().split('T')[0];
-    document.getElementById('d1').max = yesterStr;   // First Tax Date: past
-    document.getElementById('d2').max = yesterStr;   // CR Date: past
-    document.getElementById('d3').min = tmrwStr;     // Next Tax: future
-    document.getElementById('d4').min = tmrwStr;     // Next Zakat: future
+    document.getElementById('d1').max = yesterStr;
+    document.getElementById('d2').max = yesterStr;
+    document.getElementById('d3').min = tmrwStr;
+    document.getElementById('d4').min = tmrwStr;
 
-    // ── Auto-derive CR Number from Tax Number ──
+    // Auto-derive CR from Tax Number
     document.getElementById('taxNumber').addEventListener('input', function() {
       var tin = this.value.replace(/\D/g, '');
       document.getElementById('crNumber').value = tin.length >= 10 ? tin.substring(0, 10) : '';
@@ -352,29 +699,21 @@
 
     if (typeof google !== 'undefined' && google.accounts) {
       google.accounts.id.initialize({
-        client_id: '619521320052-k78lagkdbjshe5quthliq7r8t7a9mspc.apps.googleusercontent.com',
-        callback: onGoogleSignIn,
-        auto_select: true
+        client_id: GSI_CLIENT_ID,
+        callback: handleCredentialResponse
+        // No auto_select — we require explicit sign-in
       });
-      google.accounts.id.renderButton(
-        document.getElementById('googleSignInBtn'),
-        { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ar', width: 280 }
-      );
-      // Auto-populate email if user already has a Google session
-      google.accounts.id.prompt(function(notification) {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) { /* no-op */ }
-      });
+      renderGsiButton('ar');
     }
+
+    applyLang('ar');
+    showState('loginState');
   });
 
-  // ── Form submission ──
-  document.getElementById('clientForm').addEventListener('submit', function (e) {
+  // ── Registration form submission ───────────────────────────────
+  document.getElementById('clientForm').addEventListener('submit', function(e) {
     e.preventDefault();
-
-    if (!this.checkValidity()) {
-      this.classList.add('was-validated');
-      return;
-    }
+    if (!this.checkValidity()) { this.classList.add('was-validated'); return; }
 
     var t   = T[LANG];
     var btn = document.getElementById('submitBtn');
@@ -387,48 +726,47 @@
       name:          document.getElementById('clientName').value,
       contactPerson: document.getElementById('contactPerson').value,
       phone:         document.getElementById('clientPhone').value,
-      taxNumber: document.getElementById('taxNumber').value,
-      crNumber:  document.getElementById('crNumber').value,
-      taxType:   document.getElementById('taxType').value,
-      date1:     document.getElementById('d1').value,
-      date2:     document.getElementById('d2').value,
-      date3:     document.getElementById('d3').value,
-      date4:     document.getElementById('d4').value
+      taxNumber:     document.getElementById('taxNumber').value,
+      crNumber:      document.getElementById('crNumber').value,
+      taxType:       document.getElementById('taxType').value,
+      date1:         document.getElementById('d1').value,
+      date2:         document.getElementById('d2').value,
+      date3:         document.getElementById('d3').value,
+      date4:         document.getElementById('d4').value
     };
 
     // Check for duplicate email before submitting
     fetch(APPS_SCRIPT_URL + '?action=check&email=' + encodeURIComponent(data.email))
-    .then(function(res) { return res.json(); })
-    .then(function(check) {
-      if (check.exists) {
-        btn.disabled = false;
-        btn.textContent = t.btnSubmit;
-        document.getElementById('formWrapper').style.display = 'none';
-        document.getElementById('duplicateMsg').style.display = 'block';
-        return;
-      }
-      // Email is new — proceed with POST
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(data)
-      })
-      .then(function() {
-        document.getElementById('formWrapper').style.display = 'none';
-        document.getElementById('successMsg').style.display  = 'block';
+      .then(function(res) { return res.json(); })
+      .then(function(check) {
+        if (check.exists) {
+          btn.disabled = false;
+          btn.textContent = t.btnSubmit;
+          document.getElementById('formWrapper').style.display  = 'none';
+          document.getElementById('duplicateMsg').style.display = 'block';
+          return;
+        }
+        fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(data)
+        })
+        .then(function() {
+          document.getElementById('formWrapper').style.display  = 'none';
+          document.getElementById('successMsg').style.display   = 'block';
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = t.btnSubmit;
+          alert(t.alertError + err.message);
+        });
       })
       .catch(function(err) {
         btn.disabled = false;
         btn.textContent = t.btnSubmit;
-        alert(t.alertError + err.message);
+        alert(t.alertCheck + err.message);
       });
-    })
-    .catch(function(err) {
-      btn.disabled = false;
-      btn.textContent = t.btnSubmit;
-      alert(t.alertCheck + err.message);
-    });
   });
 
   function resetForm() {
@@ -437,10 +775,9 @@
     document.getElementById('clientForm').classList.remove('was-validated');
     document.getElementById('submitBtn').disabled    = false;
     document.getElementById('submitBtn').textContent = t.btnSubmit;
-    document.getElementById('formWrapper').style.display = '';
-    document.getElementById('successMsg').style.display  = 'none';
-    document.getElementById('duplicateMsg').style.display = 'none';
-    clearEmail();
+    document.getElementById('formWrapper').style.display    = '';
+    document.getElementById('successMsg').style.display     = 'none';
+    document.getElementById('duplicateMsg').style.display   = 'none';
     return false;
   }
 </script>
