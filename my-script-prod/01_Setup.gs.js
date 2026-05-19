@@ -93,7 +93,8 @@ const WF_COL_SENT_AT         = 20; // T
 const WF_COL_RETURN_COUNT    = 21; // U
 const WF_COL_LAST_RETURN_NOTE= 22; // V
 const WF_COL_LAST_UPDATED    = 23; // W
-const WF_NUM_COLS            = 23;
+const WF_COL_CLIENT_DESC     = 24; // X — client-supplied file description
+const WF_NUM_COLS            = 24;
 
 // workflow_audit columns (1-based)
 const WFA_COL_TIMESTAMP   = 1; // A
@@ -404,7 +405,8 @@ function ensureWorkflowSheets_(ss) {
       'empName', 'empEmail', 'supName', 'supEmail',
       'year', 'month', 'day', 'fileName', 'fileUrl', 'uploadedAt',
       'finished', 'note', 'status',
-      'submittedAt', 'sentAt', 'returnCount', 'lastReturnNote', 'lastUpdated'
+      'submittedAt', 'sentAt', 'returnCount', 'lastReturnNote', 'lastUpdated',
+      'clientDescription'
     ];
     wfSheet.getRange(1, 1, 1, wfHeaders.length).setValues([wfHeaders])
       .setBackground('#0d6b6e').setFontColor('#ffffff').setFontWeight('bold')
@@ -457,7 +459,8 @@ function fixWorkflowSheetHeader() {
     'empName', 'empEmail', 'supName', 'supEmail',
     'year', 'month', 'day', 'fileName', 'fileUrl', 'uploadedAt',
     'finished', 'note', 'status',
-    'submittedAt', 'sentAt', 'returnCount', 'lastReturnNote', 'lastUpdated'
+    'submittedAt', 'sentAt', 'returnCount', 'lastReturnNote', 'lastUpdated',
+    'clientDescription'
   ];
   sh.insertRowBefore(1);
   sh.getRange(1, 1, 1, wfHeaders.length).setValues([wfHeaders])

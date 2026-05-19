@@ -90,7 +90,8 @@ function wfInsertRow_(rec) {
     '',                             // T sentAt
     0,                              // U returnCount
     '',                             // V lastReturnNote
-    now                             // W lastUpdated
+    now,                            // W lastUpdated
+    rec.clientDescription || ''     // X client description
   ]);
   wfAudit_(rec.empEmail, 'inserted', id, rec.clientName, rec.fileName, null);
   return id;
@@ -132,8 +133,9 @@ function wfRowToObj_(row, sheetRowNum) {
     submittedAt:   row[WF_COL_SUBMITTED_AT - 1],
     sentAt:        row[WF_COL_SENT_AT      - 1],
     returnCount:   row[WF_COL_RETURN_COUNT - 1],
-    lastReturnNote:row[WF_COL_LAST_RETURN_NOTE - 1],
-    lastUpdated:   row[WF_COL_LAST_UPDATED - 1]
+    lastReturnNote:    row[WF_COL_LAST_RETURN_NOTE - 1],
+    lastUpdated:       row[WF_COL_LAST_UPDATED - 1],
+    clientDescription: row[WF_COL_CLIENT_DESC   - 1] || ''
   };
 }
 

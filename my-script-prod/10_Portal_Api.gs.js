@@ -149,8 +149,9 @@ function doGet(e) {
 
   try {
     switch (action) {
-      case 'me':            return ok_(roleInfo);
-      case 'client.me':     return handleClientMe_(caller);
+      case 'me':                return ok_(roleInfo);
+      case 'client.me':          return handleClientMe_(caller);
+      case 'client.listMyFiles': return handleClientListMyFiles_(caller);
       case 'listMyClients': return handleListMyClients_(roleInfo);
       case 'listRows':      return handleListRows_(params, roleInfo);
       case 'listPending':   return handleListPending_(params, roleInfo);
@@ -165,6 +166,7 @@ function doGet(e) {
       case 'submitDay':
       case 'approveAndSend':
       case 'returnToEmp':
+      case 'uploadClientFile':
         return err_('action \'' + action + '\' requires POST', 405);
       default:
         return err_('unknown action: ' + action);
@@ -208,7 +210,8 @@ function doPost(e) {
       case 'submitDay':      return handleSubmitDay_(body, roleInfo);
       case 'approveAndSend': return handleApproveAndSend_(body, roleInfo);
       case 'returnToEmp':    return handleReturnToEmp_(body, roleInfo);
-      case 'checkUploads':   return handleCheckUploads_(roleInfo);
+      case 'checkUploads':      return handleCheckUploads_(roleInfo);
+      case 'uploadClientFile':   return handleClientFileUpload_(body, caller);
       // Admin write actions
       case 'admin.assignEmployee':   return handleAdminAssignEmployee_(body, caller);
       case 'admin.unassignEmployee': return handleAdminUnassignEmployee_(body, caller);
@@ -226,6 +229,56 @@ function doPost(e) {
     Logger.log('doPost error [' + body.action + ']: ' + ex.message);
     return err_(ex.message, 500);
   }
+}
+
+// ── Client: list my files ──────────────────────────────────
+
+/**
+ * Returns all workflow rows for the authenticated client.
+ * Only exposes client-safe fields (no internal employee/supervisor notes).
+ * The 'note' field contains the supervisor's return note (lastReturnNote).
+ */
+function handleClientListMyFiles_(caller) {
+  var ssId  = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  var ss    = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (!sheet) return err_('customers sheet not found', 500);
+
+  var lc   = caller.email.toLowerCase().trim();
+  var data = sheet.getDataRange().getValues();
+  var found = false;
+  for (var i = 1; i < data.length; i++) {
+    if ((String(data[i][COL_EMAIL - 1] || '')).toLowerCase().trim() !== lc) continue;
+    if (data[i][COL_IS_ACTIVE - 1] === false) return err_('account inactive', 403);
+    found = true;
+    break;
+  }
+  if (!found) return err_('not a registered client', 403);
+
+  var rows = wfAllRows_().filter(function(r) {
+    return (String(r.clientEmail || '')).toLowerCase().trim() === lc;
+  });
+
+  rows.sort(function(a, b) {
+    var ta = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+    var tb = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  var result = rows.map(function(r) {
+    return {
+      id:               r.id,
+      fileName:         r.fileName          || '',
+      fileUrl:          r.fileUrl           || '',
+      uploadedAt:       r.uploadedAt ? Utilities.formatDate(new Date(r.uploadedAt), 'Asia/Riyadh', 'yyyy-MM-dd') : '',
+      status:           r.status            || '',
+      sentAt:           r.sentAt   ? Utilities.formatDate(new Date(r.sentAt),   'Asia/Riyadh', 'yyyy-MM-dd') : '',
+      note:             r.status === 'approved_sent' ? (r.lastReturnNote || '') : '',
+      clientDescription: r.clientDescription || ''
+    };
+  });
+
+  return ok_(result);
 }
 
 // ── Client portal: client.me ──────────────────────────────────
@@ -560,6 +613,68 @@ function handleListPending_(params, roleInfo) {
   return ok_(Object.values(clientMap));
 }
 
+// ── Client: upload file with description ─────────────────────
+
+/**
+ * Accepts a base64-encoded file from the authenticated client,
+ * creates it in the client's uploads/ folder in Drive, and sets
+ * the Drive file description to the client-supplied text.
+ *
+ * Body: { action, id_token, fileName, mimeType, base64, description }
+ * Returns: { ok: true, fileName }
+ */
+function handleClientFileUpload_(body, caller) {
+  var ssId  = PropertiesService.getScriptProperties().getProperty('MAIN_SS_ID');
+  var ss    = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CUSTOMERS_SHEET_NAME);
+  if (!sheet) return err_('customers sheet not found', 500);
+
+  // Look up the caller's record — must be a registered, active client
+  var lc   = caller.email.toLowerCase().trim();
+  var data = sheet.getDataRange().getValues();
+  var folderId = null;
+  for (var i = 1; i < data.length; i++) {
+    if ((String(data[i][COL_EMAIL - 1] || '')).toLowerCase().trim() !== lc) continue;
+    if (data[i][COL_IS_ACTIVE - 1] === false) return err_('account inactive', 403);
+    folderId = String(data[i][COL_FOLDER_ID - 1] || '').trim();
+    break;
+  }
+  if (!folderId) return err_('no folder assigned — contact support', 403);
+
+  // Validate required fields
+  var fileName = (body.fileName || '').trim();
+  var mimeType = (body.mimeType || 'application/octet-stream').trim();
+  var b64      = (body.base64  || '').trim();
+  var desc     = (body.description || '').substring(0, 500); // cap at 500 chars
+  if (!fileName) return err_('fileName required');
+  if (!b64)      return err_('base64 required');
+
+  // Locate the uploads/ subfolder
+  var rootFolder;
+  try { rootFolder = DriveApp.getFolderById(folderId); }
+  catch (e) { return err_('client folder not accessible: ' + e.message, 500); }
+
+  var uploadsIter = rootFolder.getFoldersByName(FOLDER_UPLOADS);
+  if (!uploadsIter.hasNext()) return err_('uploads folder not found — contact support', 500);
+  var uploadsFolder = uploadsIter.next();
+
+  // Decode and create the file
+  var blob = Utilities.newBlob(Utilities.base64Decode(b64), mimeType, fileName);
+  var file = uploadsFolder.createFile(blob);
+  if (desc) file.setDescription(desc);
+
+  // Mark as portal-uploaded so checkUploadsForNewFiles can process it
+  // (files created by the script owner are normally skipped)
+  try {
+    Drive.Files.update({ appProperties: { clientUpload: 'true' } }, file.getId());
+  } catch (e) {
+    Logger.log('handleClientFileUpload_: could not set appProperty: ' + e.message);
+  }
+
+  Logger.log('handleClientFileUpload_: ' + caller.email + ' uploaded "' + fileName + '" (desc: ' + (desc ? 'yes' : 'no') + ')');
+  return ok_({ ok: true, fileName: fileName });
+}
+
 function handleCheckUploads_(roleInfo) {
   if (!roleInfo.role) return err_('not authorized', 403);
   try {
@@ -797,7 +912,9 @@ function handleApproveAndSend_(body, roleInfo) {
   }
 
   rowsToApprove.forEach(function(r) {
-    wfUpdateById_(r.id, { status: 'approved_sent', sentAt: now });
+    var patch = { status: 'approved_sent', sentAt: now };
+    if (supervisorNote) patch.lastReturnNote = supervisorNote;
+    wfUpdateById_(r.id, patch);
     wfAudit_(roleInfo.email, 'approveAndSend', r.id, r.clientName, r.fileName, null);
   });
 

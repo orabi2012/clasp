@@ -188,6 +188,7 @@
           <thead>
             <tr>
               <th data-i18n="thFile">الملف</th>
+              <th data-i18n="thClientDesc" style="min-width:130px;">وصف العميل</th>
               <th data-i18n="thDate">التاريخ</th>
               <th data-i18n="thLastUpdate">آخر تحديث</th>
               <th data-i18n="thStatus">الحالة</th>
@@ -197,7 +198,7 @@
             </tr>
           </thead>
           <tbody id="empRowsBody">
-            <tr><td colspan="7" class="text-center text-muted py-4" data-i18n="noRows">لا توجد سجلات</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4" data-i18n="noRows">لا توجد سجلات</td></tr>
           </tbody>
         </table>
       </div>
@@ -265,6 +266,7 @@
               <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"
                 class="form-check-input" style="width:1.1em;height:1.1em;"></th>
               <th data-i18n="thFile">الملف</th>
+              <th data-i18n="thClientDesc" style="min-width:130px;">وصف العميل</th>
               <th data-i18n="thDate">التاريخ</th>
               <th data-i18n="thLastUpdate">آخر تحديث</th>
               <th data-i18n="thStatus">الحالة</th>
@@ -375,7 +377,7 @@ var T = {
     secMyClients:'عملائي', secPending:'كل الملفات',
     filterStatus:'الحالة:', filterAll:'الكل', filterAllStatuses:'كل الحالات', filterClient:'العميل:', filterAllClients:'كل العملاء', filterEmp:'الموظف:', filterAllEmps:'كل الموظفين', btnRefresh:'تحديث', btnCheckUploads:'تحديث رفع الملفات', btnCheckingUploads:'جارٍ التحديث…', toastUploadsChecked:'تم فحص الرفع ✓', btnBack:'← رجوع',
     thFile:'الملف', thDate:'التاريخ', thLastUpdate:'آخر تحديث', thStatus:'الحالة',
-    thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع',
+    thFinished:'مراجَع ✓', thNote:'ملاحظة', thActions:'إجراء', thReturnCount:'مرات الإرجاع', thClientDesc:'وصف العميل',
     noRows:'لا توجد مهمات', noClients:'لا توجد عملاء',
     sNew:'ملف جديد', sInProgress:'قيد المراجعة', sReturned:'عائد للموظف',
     sSubmitted:'مُحوّل للمشرف', sApproved:'أُرسل للعميل',
@@ -410,7 +412,7 @@ var T = {
     secMyClients:'My Clients', secPending:'All Files',
     filterStatus:'Status:', filterAll:'All', filterAllStatuses:'All Statuses', filterClient:'Client:', filterAllClients:'All clients', filterEmp:'Employee:', filterAllEmps:'All employees', btnRefresh:'Refresh', btnCheckUploads:'Refresh File Upload', btnCheckingUploads:'Refreshing…', toastUploadsChecked:'Uploads checked ✓', btnBack:'← Back',
     thFile:'File', thDate:'Date', thLastUpdate:'Last Update', thStatus:'Status',
-    thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns',
+    thFinished:'Reviewed ✓', thNote:'Note', thActions:'Action', thReturnCount:'Returns', thClientDesc:'Client Note',
     noRows:'No tasks yet', noClients:'No clients',
     sNew:'New', sInProgress:'In Progress', sReturned:'Returned',
     sSubmitted:'Pending Supervisor', sApproved:'Sent to Client',
@@ -666,7 +668,7 @@ function renderEmpRows() {
   var editable = ['new','in_progress','returned'];
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+t.noRows+'</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">'+t.noRows+'</td></tr>';
     document.getElementById('submitDaySection').style.display = 'none';
     return;
   }
@@ -696,6 +698,7 @@ function renderEmpRows() {
     return [
       '<tr>',
         '<td>'+fileLink+'</td>',
+        '<td style="font-size:.8rem;max-width:160px;color:#555;">'+esc(r.clientDescription||'—')+'</td>',
         '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
         '<td dir="ltr" style="white-space:nowrap;font-size:.78rem;color:#6c757d;">'+esc(fmtDateTime(r.lastUpdated))+'</td>',
         '<td>'+badge(r.status)+'</td>',
@@ -918,6 +921,7 @@ function openSupDetailById(cid) {
       '<tr>',
         '<td><input type="checkbox" class="form-check-input row-chk" style="width:1.1em;height:1.1em;"'+chkDisabled+' onchange="updateSupActionButtons()" value="'+esc(r.id)+'"></td>',
         '<td>'+fileLink+'</td>',
+        '<td style="font-size:.8rem;max-width:160px;color:#555;">'+esc(r.clientDescription||'—')+'</td>',
         '<td dir="ltr" style="white-space:nowrap;">'+esc(dateLabel)+'</td>',
         '<td dir="ltr" style="white-space:nowrap;font-size:.78rem;color:#6c757d;">'+esc(fmtDateTime(r.lastUpdated))+'</td>',
         '<td>'+badge(r.status)+'</td>',

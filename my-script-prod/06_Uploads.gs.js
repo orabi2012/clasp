@@ -66,15 +66,24 @@ function checkUploadsForNewFiles() {
         const f          = filesIter.next();
         const ownerEmail = f.getOwner() ? f.getOwner().getEmail() : '';
         if (ownerEmail === scriptOwner) {
-          Logger.log('[' + clientName + '] skipped script-owner file: ' + f.getName());
-          continue;
+          // Allow portal-uploaded files (tagged with clientUpload app property)
+          var isClientUpload = false;
+          try {
+            var fileMeta = Drive.Files.get(f.getId(), { fields: 'appProperties' });
+            isClientUpload = !!(fileMeta.appProperties && fileMeta.appProperties.clientUpload === 'true');
+          } catch (e) { /* treat as non-portal file */ }
+          if (!isClientUpload) {
+            Logger.log('[' + clientName + '] skipped script-owner file: ' + f.getName());
+            continue;
+          }
         }
         fileMetaList.push({
           id:          f.getId(),
           name:        f.getName(),
           url:         f.getUrl(),
           size:        f.getSize(),
-          dateCreated: f.getDateCreated()
+          dateCreated: f.getDateCreated(),
+          description: f.getDescription() || ''
         });
       }
 
@@ -120,9 +129,10 @@ function checkUploadsForNewFiles() {
               year:           year,
               month:          month,
               day:            day,
-              fileName:       meta.name,
-              fileUrl:        meta.url,
-              uploadedAt:     uploadDate
+              fileName:          meta.name,
+              fileUrl:           meta.url,
+              uploadedAt:        uploadDate,
+              clientDescription: meta.description
             });
           } catch (wfErr) {
             Logger.log('[' + clientName + '] workflow insert failed for "' + meta.name + '": ' + wfErr.message);

@@ -306,8 +306,9 @@
       <div class="dash-section-label" id="dashSecFolders">مجلدات Google Drive</div>
       <!-- Shown when employee assigned -->
       <div id="dashFolderLinks" style="display:none;" class="folder-grid">
-        <a id="dashFolderUploads" class="folder-btn folder-btn-primary" href="#" target="_blank" rel="noopener">📤 <span id="dashFolderUploadsLbl">رفع الملفات</span></a>
         <a id="dashFolderResults" class="folder-btn folder-btn-secondary" href="#" target="_blank" rel="noopener">📥 <span id="dashFolderResultsLbl">النتائج</span></a>
+        <button id="dashUploadFormBtn" type="button" class="folder-btn folder-btn-primary" onclick="goToUploadState()" style="display:none;">📝 <span id="dashUploadFormBtnLbl">رفع مع وصف</span></button>
+        <button id="dashMyFilesBtn" type="button" class="folder-btn folder-btn-secondary" onclick="goToMyFilesState()" style="display:none;">📋 <span id="dashMyFilesBtnLbl">ملفاتي</span></button>
       </div>
       <!-- Shown when no employee assigned yet -->
       <div id="dashNoFolder" class="no-folder-note" style="display:none;">
@@ -332,6 +333,68 @@
       <button class="signout-btn signout-btn-dark" onclick="signOut()" id="inactiveSignOutBtn">تسجيل الخروج</button>
     </div>
   </div><!-- /#inactiveState -->
+
+  <!-- ══════════════════════════════════════════════════════
+       STATE 6: Upload Files with Description
+       ══════════════════════════════════════════════════════ -->
+  <div id="uploadState" style="display:none;">
+    <div style="text-align:center;padding:.75rem 1rem .25rem;border-bottom:1px solid #e9ecef;margin-bottom:.5rem;">
+      <button class="signout-btn" onclick="showState('dashboardState')" id="uploadBackBtn">↩ <span id="uploadBackBtnLbl">العودة للرئيسية</span></button>
+    </div>
+    <div style="padding:1rem 1.5rem;">
+      <div class="dash-section-label" id="uploadSectionTitle">رفع ملفات مع وصف</div>
+      <input type="file" id="uploadFileInput" multiple style="display:none;" onchange="onFilesChosen()">
+      <button type="button" class="folder-btn folder-btn-secondary" style="margin-bottom:1rem;" onclick="document.getElementById('uploadFileInput').click()">
+        📁 <span id="uploadChooseBtn">اختر ملفات</span>
+      </button>
+      <div id="uploadFileTable" style="display:none;">
+        <div style="overflow-x:auto;">
+          <table class="table table-sm table-bordered" style="min-width:420px;">
+            <thead class="table-light">
+              <tr>
+                <th id="uploadThFile">الملف</th>
+                <th id="uploadThDesc">الوصف</th>
+                <th id="uploadThStatus" style="width:90px;">الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="uploadTableBody"></tbody>
+          </table>
+        </div>
+        <div id="uploadGlobalMsg" style="display:none;margin-bottom:.75rem;"></div>
+        <button type="button" class="btn btn-submit" id="uploadSubmitBtn" onclick="submitAllUploads()">
+          <span id="uploadSubmitBtnLbl">رفع الملفات</span>
+        </button>
+      </div>
+    </div>
+  </div><!-- /#uploadState -->
+
+  <!-- ══════════════════════════════════════════════════════
+       STATE 7: My Files
+       ══════════════════════════════════════════════════════ -->
+  <div id="myFilesState" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem .5rem;border-bottom:1px solid #e9ecef;margin-bottom:.5rem;">
+      <button class="signout-btn" onclick="showState('dashboardState')" id="myFilesBackBtn">↩ <span id="myFilesBackBtnLbl">العودة للرئيسية</span></button>
+      <button type="button" id="myFilesRefreshBtn" onclick="loadMyFiles()" class="btn btn-outline-secondary btn-sm" style="font-family:'Cairo',sans-serif;font-size:.8rem;">&#x21bb; <span id="myFilesRefreshBtnLbl">تحديث</span></button>
+    </div>
+    <div style="padding:1rem 1.5rem;">
+      <div class="dash-section-label" id="myFilesSectionTitle">ملفاتي</div>
+      <div id="myFilesLoading" class="text-center text-muted py-4">جارٍ التحميل…</div>
+      <div class="table-responsive" id="myFilesTableWrap" style="display:none;">
+        <table class="table table-hover align-middle" style="font-size:.85rem;">
+          <thead>
+            <tr>
+              <th id="myFilesThFile">الملف</th>
+              <th id="myFilesThDate">التاريخ</th>
+              <th id="myFilesThStatus">الحالة</th>
+              <th id="myFilesThNote">ملاحظة</th>
+            </tr>
+          </thead>
+          <tbody id="myFilesTableBody"></tbody>
+        </table>
+      </div>
+      <div id="myFilesNoRows" class="text-center text-muted py-4" style="display:none;"></div>
+    </div>
+  </div><!-- /#myFilesState -->
 
   <!-- Shared footer -->
   <div class="form-footer" id="sharedFooter">
@@ -412,11 +475,39 @@
       dashLblNextTax:     'الإقرار الضريبي',
       dashLblNextZakat:   'الإقرار الزكوي',
       dashSecFolders:     'مجلدات Google Drive',
-      dashFolderUploadsLbl: 'رفع الملفات',
       dashFolderResultsLbl: 'النتائج',
+      dashMyFilesBtnLbl:   'ملفاتي',
+      myFilesBackBtnLbl:    'العودة للرئيسية',
+      myFilesRefreshBtnLbl: 'تحديث',
+      myFilesSectionTitle:  'ملفاتي',
+      myFilesThFile:        'الملف',
+      myFilesThDate:        'التاريخ',
+      myFilesThStatus:      'الحالة',
+      myFilesThNote:        'ملاحظة من Statix',
+      myFilesNoRows:        'لا توجد ملفات بعد',
+      myFilesLoading:       'جارٍ التحميل…',
+      myFilesStatusNew:      'جديد',
+      myFilesStatusReview:   'قيد المراجعة',
+      myFilesStatusDone:     'أُرسل للعميل',
       dashNoFolderText:   '🕐 جارٍ إعداد حسابك، ستتوفر الروابط بعد تعيين المحاسب المسئول.',
       dashSignOutBtn:     'تسجيل الخروج',
       regChangeAccountBtn: '↩ تسجيل الدخول بحساب آخر',
+      // Upload state
+      dashUploadFormBtnLbl: 'رفع مع وصف',
+      uploadBackBtnLbl:    'العودة للرئيسية',
+      uploadSectionTitle:  'رفع ملفات مع وصف',
+      uploadChooseBtn:     'اختر ملفات',
+      uploadThFile:        'الملف',
+      uploadThDesc:        'الوصف',
+      uploadThStatus:      'الحالة',
+      uploadPhDesc:        'وصف الملف (اختياري)',
+      uploadSubmitBtnLbl:  'رفع الملفات',
+      uploadStatusUploading: 'جارٍ الرفع…',
+      uploadStatusDone:    '✅ تم',
+      uploadStatusError:   '❌ خطأ',
+      uploadSuccessMsg:    'تم رفع جميع الملفات بنجاح!',
+      uploadPartialMsg:    'تم رفع بعض الملفات. تحقق من الحالة أعلاه.',
+      uploadNoFiles:       'الرجاء اختيار ملف واحد على الأقل.',
       // Inactive state
       inactiveTitle:   'الحساب موقوف',
       inactiveBody:    'تم إيقاف حسابك مؤقتاً. يرجى التواصل مع فريق Statix للمساعدة.',
@@ -486,11 +577,39 @@
       dashLblNextTax:     'Tax Declaration',
       dashLblNextZakat:   'Zakat Declaration',
       dashSecFolders:     'Google Drive Folders',
-      dashFolderUploadsLbl: 'Upload Files',
       dashFolderResultsLbl: 'Results',
+      dashMyFilesBtnLbl:   'My Files',
+      myFilesBackBtnLbl:   'Back to Dashboard',
+      myFilesRefreshBtnLbl: 'Refresh',
+      myFilesSectionTitle: 'My Files',
+      myFilesThFile:       'File',
+      myFilesThDate:       'Date',
+      myFilesThStatus:     'Status',
+      myFilesThNote:       'Note from Statix',
+      myFilesNoRows:       'No files yet',
+      myFilesLoading:      'Loading…',
+      myFilesStatusNew:    'New',
+      myFilesStatusReview: 'Under Review',
+      myFilesStatusDone:   'Sent to Client',
       dashNoFolderText:   '🕐 Your account is being prepared. Folder links will appear once an accountant is assigned.',
       dashSignOutBtn:     'Sign Out',
       regChangeAccountBtn: '↩ Sign in with a different account',
+      // Upload state
+      dashUploadFormBtnLbl: 'Upload with Description',
+      uploadBackBtnLbl:    'Back to Dashboard',
+      uploadSectionTitle:  'Upload Files with Description',
+      uploadChooseBtn:     'Choose Files',
+      uploadThFile:        'File',
+      uploadThDesc:        'Description',
+      uploadThStatus:      'Status',
+      uploadPhDesc:        'File description (optional)',
+      uploadSubmitBtnLbl:  'Upload Files',
+      uploadStatusUploading: 'Uploading…',
+      uploadStatusDone:    '✅ Done',
+      uploadStatusError:   '❌ Error',
+      uploadSuccessMsg:    'All files uploaded successfully!',
+      uploadPartialMsg:    'Some files were uploaded. Check status above.',
+      uploadNoFiles:       'Please choose at least one file.',
       // Inactive state
       inactiveTitle:   'Account Suspended',
       inactiveBody:    'Your account has been temporarily suspended. Please contact the Statix team for assistance.',
@@ -513,8 +632,14 @@
       'dashSecInfo','dashLblCompany','dashLblContact','dashLblPhone',
       'dashLblEmail','dashLblStatus','dashLblTaxType',
       'dashSecDates','dashLblNextTax','dashLblNextZakat',
-      'dashSecFolders','dashFolderUploadsLbl','dashFolderResultsLbl',
-      'dashNoFolderText','dashSignOutBtn',
+      'dashSecFolders','dashFolderResultsLbl',
+      'dashMyFilesBtnLbl','dashNoFolderText','dashSignOutBtn',
+      'dashUploadFormBtnLbl',
+      'uploadBackBtnLbl','uploadSectionTitle','uploadChooseBtn',
+      'uploadThFile','uploadThDesc','uploadThStatus','uploadSubmitBtnLbl',
+      'myFilesBackBtnLbl','myFilesRefreshBtnLbl','myFilesSectionTitle',
+      'myFilesThFile','myFilesThDate','myFilesThStatus','myFilesThNote',
+      'myFilesNoRows','myFilesLoading',
       'inactiveTitle','inactiveBody','inactiveContact','inactiveSignOutBtn',
       'regChangeAccountBtn'
     ];
@@ -548,7 +673,7 @@
   function toggleLang() { switchLang(LANG === 'ar' ? 'en' : 'ar'); }
 
   // ── State helpers ──────────────────────────────────────────────
-  var STATES = ['loginState','loadingState','registerState','dashboardState','inactiveState'];
+  var STATES = ['loginState','loadingState','registerState','dashboardState','inactiveState','uploadState','myFilesState'];
   function showState(id) {
     STATES.forEach(function(s) {
       document.getElementById(s).style.display = (s === id) ? '' : 'none';
@@ -644,16 +769,17 @@
 
     // Drive folders
     if (d.folderAssigned) {
-      if (d.uploadsUrl)  document.getElementById('dashFolderUploads').href = d.uploadsUrl;
       if (d.resultsUrl)  document.getElementById('dashFolderResults').href = d.resultsUrl;
-      // Hide buttons that have no URL yet
-      document.getElementById('dashFolderUploads').style.display = d.uploadsUrl ? '' : 'none';
       document.getElementById('dashFolderResults').style.display = d.resultsUrl ? '' : 'none';
-      document.getElementById('dashFolderLinks').style.display = '';
-      document.getElementById('dashNoFolder').style.display    = 'none';
+      document.getElementById('dashUploadFormBtn').style.display = '';
+      document.getElementById('dashMyFilesBtn').style.display   = '';
+      document.getElementById('dashFolderLinks').style.display  = '';
+      document.getElementById('dashNoFolder').style.display     = 'none';
     } else {
-      document.getElementById('dashFolderLinks').style.display = 'none';
-      document.getElementById('dashNoFolder').style.display    = '';
+      document.getElementById('dashUploadFormBtn').style.display = 'none';
+      document.getElementById('dashMyFilesBtn').style.display   = 'none';
+      document.getElementById('dashFolderLinks').style.display  = 'none';
+      document.getElementById('dashNoFolder').style.display     = '';
     }
   }
 
@@ -677,6 +803,174 @@
     }
     showState('loginState');
     applyLang('ar');   // reset to default language on sign-out
+  }
+
+  // ── My Files state ─────────────────────────────────────────
+  function goToMyFilesState() {
+    document.getElementById('myFilesLoading').style.display   = '';
+    document.getElementById('myFilesTableWrap').style.display = 'none';
+    document.getElementById('myFilesNoRows').style.display    = 'none';
+    showState('myFilesState');
+    loadMyFiles();
+  }
+
+  function loadMyFiles() {
+    var t    = T[LANG];
+    var rBtn = document.getElementById('myFilesRefreshBtn');
+    if (rBtn) rBtn.disabled = true;
+    document.getElementById('myFilesLoading').style.display   = '';
+    document.getElementById('myFilesTableWrap').style.display = 'none';
+    document.getElementById('myFilesNoRows').style.display    = 'none';
+    fetch(APPS_SCRIPT_URL + '?action=client.listMyFiles&id_token=' + encodeURIComponent(_idToken))
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (rBtn) rBtn.disabled = false;
+        document.getElementById('myFilesLoading').style.display = 'none';
+        if (!resp.ok || !resp.data || resp.data.length === 0) {
+          document.getElementById('myFilesNoRows').textContent   = t.myFilesNoRows;
+          document.getElementById('myFilesNoRows').style.display = '';
+          return;
+        }
+        var rows = resp.data;
+        var statusMap = {
+          'new':           t.myFilesStatusNew,
+          'in_progress':   t.myFilesStatusReview,
+          'submitted':     t.myFilesStatusReview,
+          'returned':      t.myFilesStatusReview,
+          'approved_sent': t.myFilesStatusDone
+        };
+        var tbody = document.getElementById('myFilesTableBody');
+        tbody.innerHTML = rows.map(function(r) {
+          var label   = statusMap[r.status] || r.status;
+          var isDone  = r.status === 'approved_sent';
+          var stStyle = isDone ? 'color:#2a8a82;font-weight:600;' : 'color:#666;';
+          var fileCell = r.fileUrl
+            ? '<a href="' + escHtml(r.fileUrl) + '" target="_blank" rel="noopener">' + escHtml(r.fileName || '—') + '</a>'
+            : escHtml(r.fileName || '—');
+          return '<tr>' +
+            '<td style="font-size:.82rem;word-break:break-all;">' + fileCell + '</td>' +
+            '<td style="font-size:.8rem;white-space:nowrap;">' + escHtml(r.uploadedAt || '—') + '</td>' +
+            '<td style="font-size:.8rem;' + stStyle + '">' + escHtml(label) + '</td>' +
+            '<td style="font-size:.8rem;max-width:180px;color:#555;">' + escHtml(r.note || '—') + '</td>' +
+            '</tr>';
+        }).join('');
+        document.getElementById('myFilesTableWrap').style.display = '';
+      })
+      .catch(function() {
+        if (rBtn) rBtn.disabled = false;
+        document.getElementById('myFilesLoading').style.display  = 'none';
+        document.getElementById('myFilesNoRows').textContent     = T[LANG].myFilesNoRows;
+        document.getElementById('myFilesNoRows').style.display   = '';
+      });
+  }
+
+  // ── Upload state ───────────────────────────────────────────────
+  function goToUploadState() {
+    // Reset upload form
+    document.getElementById('uploadFileInput').value = '';
+    document.getElementById('uploadTableBody').innerHTML = '';
+    document.getElementById('uploadFileTable').style.display = 'none';
+    document.getElementById('uploadGlobalMsg').style.display = 'none';
+    document.getElementById('uploadSubmitBtn').disabled = false;
+    showState('uploadState');
+  }
+
+  function onFilesChosen() {
+    var files = document.getElementById('uploadFileInput').files;
+    var tbody = document.getElementById('uploadTableBody');
+    tbody.innerHTML = '';
+    document.getElementById('uploadGlobalMsg').style.display = 'none';
+    if (!files || files.length === 0) {
+      document.getElementById('uploadFileTable').style.display = 'none';
+      return;
+    }
+    var phDesc = T[LANG].uploadPhDesc || '';
+    for (var i = 0; i < files.length; i++) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="font-size:.82rem;word-break:break-all;">' + escHtml(files[i].name) + '</td>' +
+        '<td><textarea class="form-control form-control-sm upload-desc" rows="2" placeholder="' + escHtml(phDesc) + '"></textarea></td>' +
+        '<td class="upload-status" style="font-size:.8rem;"></td>';
+      tbody.appendChild(tr);
+    }
+    document.getElementById('uploadFileTable').style.display = '';
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function(e) { resolve(e.target.result.split(',')[1]); };
+      reader.onerror = function() { reject(new Error('Failed to read file')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function submitAllUploads() {
+    var files = document.getElementById('uploadFileInput').files;
+    if (!files || files.length === 0) {
+      alert(T[LANG].uploadNoFiles);
+      return;
+    }
+    var btn         = document.getElementById('uploadSubmitBtn');
+    var descInputs  = document.querySelectorAll('#uploadTableBody .upload-desc');
+    var statusCells = document.querySelectorAll('#uploadTableBody .upload-status');
+    btn.disabled = true;
+    var successCount = 0, errorCount = 0;
+
+    for (var i = 0; i < files.length; i++) {
+      statusCells[i].textContent = T[LANG].uploadStatusUploading;
+      try {
+        var b64  = await fileToBase64(files[i]);
+        var desc = descInputs[i] ? descInputs[i].value.trim() : '';
+        var resp = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action:      'uploadClientFile',
+            id_token:    _idToken,
+            fileName:    files[i].name,
+            mimeType:    files[i].type || 'application/octet-stream',
+            base64:      b64,
+            description: desc
+          })
+        });
+        var json = await resp.json();
+        if ((json.data && json.data.ok) || json.ok) {
+          statusCells[i].textContent = T[LANG].uploadStatusDone;
+          successCount++;
+        } else {
+          statusCells[i].textContent = T[LANG].uploadStatusError + ' — ' + (json.error || 'error');
+          errorCount++;
+        }
+      } catch (err) {
+        statusCells[i].textContent = T[LANG].uploadStatusError + ' — ' + (err.message || 'error');
+        errorCount++;
+      }
+    }
+
+    btn.disabled = false;
+    var msgEl = document.getElementById('uploadGlobalMsg');
+    if (errorCount === 0) {
+      msgEl.className   = 'alert alert-success';
+      msgEl.textContent = T[LANG].uploadSuccessMsg;
+      // Auto-reset form on full success
+      setTimeout(function() {
+        document.getElementById('uploadFileInput').value = '';
+        document.getElementById('uploadTableBody').innerHTML = '';
+        document.getElementById('uploadFileTable').style.display = 'none';
+        msgEl.style.display = 'none';
+      }, 3000);
+    } else if (successCount > 0) {
+      msgEl.className   = 'alert alert-warning';
+      msgEl.textContent = T[LANG].uploadPartialMsg;
+    } else {
+      msgEl.className   = 'alert alert-danger';
+      msgEl.textContent = T[LANG].uploadStatusError;
+    }
+    msgEl.style.display = '';
   }
 
   // ── Initialise ─────────────────────────────────────────────────
