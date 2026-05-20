@@ -173,6 +173,8 @@ function sendEmailToEmployee(employeeEmail, employeeName, clientName, clientEmai
 function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, resultsUrl, guidelinesUrl, lang) {
   const isEn    = lang === 'en';
   const na      = isEn ? 'N/A' : 'غير متوفر';
+  const portalUrl = getPortalUrl_();
+  const portalHomeUrl = portalUrl ? portalUrl.replace(/\/+$/, '') + '/index.html' : '';
   const subject = isEn
     ? 'Your Files Are Ready - ' + clientName + ' | ' + COMPANY_NAME
     : 'تم تجهيز ملفاتك - ' + clientName;
@@ -180,22 +182,25 @@ function sendEmailToClient(clientEmail, clientName, employeeData, uploadsUrl, re
   const empEmail = employeeData ? employeeData.email        : na;
   const empPhone = employeeData ? (employeeData.phone || na) : na;
 
-  const folders = [
-    {
-      url:   uploadsUrl,
-      title: isEn ? 'Uploads Folder' : 'مجلد رفع الملفات',
-      desc:  isEn ? 'Upload your documents and required files here.'
-                  : 'لرفع مستنداتك وملفاتك المطلوبة.',
-      btn:   isEn ? 'Open Uploads' : 'افتح مجلد الرفع'
-    },
-    {
+  const folders = [];
+  if (portalHomeUrl) {
+    folders.push({
+      url:   portalHomeUrl,
+      title: isEn ? 'Client Portal' : 'بوابة العميل',
+      desc:  isEn ? 'Use the portal to upload files and track updates.'
+                  : 'استخدم البوابة لرفع الملفات ومتابعة التحديثات.',
+      btn:   isEn ? 'Open Portal' : 'افتح البوابة'
+    });
+  }
+  if (resultsUrl) {
+    folders.push({
       url:   resultsUrl,
       title: isEn ? 'Results Folder' : 'مجلد النتائج والتقارير',
       desc:  isEn ? 'Reports and results added by the team will appear here.'
                   : 'ستجد هنا النتائج والتقارير التي يضعها الفريق.',
       btn:   isEn ? 'Open Results' : 'افتح مجلد النتائج'
-    }
-  ];
+    });
+  }
   if (guidelinesUrl) {
     folders.push({
       url:   guidelinesUrl,

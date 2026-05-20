@@ -500,7 +500,8 @@
       uploadThFile:        'الملف',
       uploadThDesc:        'الوصف',
       uploadThStatus:      'الحالة',
-      uploadPhDesc:        'وصف الملف (اختياري)',
+      uploadPhDesc:        'وصف الملف (إلزامي)',
+      uploadDescRequired:  'الرجاء كتابة وصف لكل ملف قبل الرفع.',
       uploadSubmitBtnLbl:  'رفع الملفات',
       uploadStatusUploading: 'جارٍ الرفع…',
       uploadStatusDone:    '✅ تم',
@@ -602,7 +603,8 @@
       uploadThFile:        'File',
       uploadThDesc:        'Description',
       uploadThStatus:      'Status',
-      uploadPhDesc:        'File description (optional)',
+      uploadPhDesc:        'File description (required)',
+      uploadDescRequired:  'Please add a description for each file before uploading.',
       uploadSubmitBtnLbl:  'Upload Files',
       uploadStatusUploading: 'Uploading…',
       uploadStatusDone:    '✅ Done',
@@ -669,7 +671,7 @@
     }
   }
 
-  function switchLang(lang) { applyLang(lang); }
+  function switchLang(lang) { applyLang(lang); renderMyFilesIfVisible(); }
   function toggleLang() { switchLang(LANG === 'ar' ? 'en' : 'ar'); }
 
   // ── State helpers ──────────────────────────────────────────────
@@ -806,7 +808,16 @@
   }
 
   // ── My Files state ─────────────────────────────────────────
+  var _myFilesData = null;
+
+  function renderMyFilesIfVisible() {
+    if (document.getElementById('myFilesState').style.display !== 'none' && _myFilesData) {
+      renderMyFilesRows(_myFilesData);
+    }
+  }
+
   function goToMyFilesState() {
+    _myFilesData = null;
     document.getElementById('myFilesLoading').style.display   = '';
     document.getElementById('myFilesTableWrap').style.display = 'none';
     document.getElementById('myFilesNoRows').style.display    = 'none';
@@ -814,8 +825,34 @@
     loadMyFiles();
   }
 
+  function renderMyFilesRows(rows) {
+    var t = T[LANG];
+    var statusMap = {
+      'new':           t.myFilesStatusNew,
+      'in_progress':   t.myFilesStatusReview,
+      'submitted':     t.myFilesStatusReview,
+      'returned':      t.myFilesStatusReview,
+      'approved_sent': t.myFilesStatusDone
+    };
+    var tbody = document.getElementById('myFilesTableBody');
+    tbody.innerHTML = rows.map(function(r) {
+      var label   = statusMap[r.status] || r.status;
+      var isDone  = r.status === 'approved_sent';
+      var stStyle = isDone ? 'color:#2a8a82;font-weight:600;' : 'color:#666;';
+      var fileCell = r.fileUrl
+        ? '<a href="' + escHtml(r.fileUrl) + '" target="_blank" rel="noopener">' + escHtml(r.fileName || '—') + '</a>'
+        : escHtml(r.fileName || '—');
+      return '<tr>' +
+        '<td style="font-size:.82rem;word-break:break-all;">' + fileCell + '</td>' +
+        '<td style="font-size:.8rem;white-space:nowrap;">' + escHtml(r.uploadedAt || '—') + '</td>' +
+        '<td style="font-size:.8rem;' + stStyle + '">' + escHtml(label) + '</td>' +
+        '<td style="font-size:.8rem;max-width:180px;color:#555;">' + escHtml(r.note || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    document.getElementById('myFilesTableWrap').style.display = '';
+  }
+
   function loadMyFiles() {
-    var t    = T[LANG];
     var rBtn = document.getElementById('myFilesRefreshBtn');
     if (rBtn) rBtn.disabled = true;
     document.getElementById('myFilesLoading').style.display   = '';
@@ -827,34 +864,12 @@
         if (rBtn) rBtn.disabled = false;
         document.getElementById('myFilesLoading').style.display = 'none';
         if (!resp.ok || !resp.data || resp.data.length === 0) {
-          document.getElementById('myFilesNoRows').textContent   = t.myFilesNoRows;
+          document.getElementById('myFilesNoRows').textContent   = T[LANG].myFilesNoRows;
           document.getElementById('myFilesNoRows').style.display = '';
           return;
         }
-        var rows = resp.data;
-        var statusMap = {
-          'new':           t.myFilesStatusNew,
-          'in_progress':   t.myFilesStatusReview,
-          'submitted':     t.myFilesStatusReview,
-          'returned':      t.myFilesStatusReview,
-          'approved_sent': t.myFilesStatusDone
-        };
-        var tbody = document.getElementById('myFilesTableBody');
-        tbody.innerHTML = rows.map(function(r) {
-          var label   = statusMap[r.status] || r.status;
-          var isDone  = r.status === 'approved_sent';
-          var stStyle = isDone ? 'color:#2a8a82;font-weight:600;' : 'color:#666;';
-          var fileCell = r.fileUrl
-            ? '<a href="' + escHtml(r.fileUrl) + '" target="_blank" rel="noopener">' + escHtml(r.fileName || '—') + '</a>'
-            : escHtml(r.fileName || '—');
-          return '<tr>' +
-            '<td style="font-size:.82rem;word-break:break-all;">' + fileCell + '</td>' +
-            '<td style="font-size:.8rem;white-space:nowrap;">' + escHtml(r.uploadedAt || '—') + '</td>' +
-            '<td style="font-size:.8rem;' + stStyle + '">' + escHtml(label) + '</td>' +
-            '<td style="font-size:.8rem;max-width:180px;color:#555;">' + escHtml(r.note || '—') + '</td>' +
-            '</tr>';
-        }).join('');
-        document.getElementById('myFilesTableWrap').style.display = '';
+        _myFilesData = resp.data;
+        renderMyFilesRows(_myFilesData);
       })
       .catch(function() {
         if (rBtn) rBtn.disabled = false;
@@ -889,7 +904,7 @@
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td style="font-size:.82rem;word-break:break-all;">' + escHtml(files[i].name) + '</td>' +
-        '<td><textarea class="form-control form-control-sm upload-desc" rows="2" placeholder="' + escHtml(phDesc) + '"></textarea></td>' +
+        '<td><textarea class="form-control form-control-sm upload-desc" rows="2" required placeholder="' + escHtml(phDesc) + '"></textarea></td>' +
         '<td class="upload-status" style="font-size:.8rem;"></td>';
       tbody.appendChild(tr);
     }
@@ -918,6 +933,25 @@
     var btn         = document.getElementById('uploadSubmitBtn');
     var descInputs  = document.querySelectorAll('#uploadTableBody .upload-desc');
     var statusCells = document.querySelectorAll('#uploadTableBody .upload-status');
+
+    // Enforce mandatory description for every selected file.
+    var firstMissing = -1;
+    for (var d = 0; d < descInputs.length; d++) {
+      var val = descInputs[d] ? descInputs[d].value.trim() : '';
+      if (descInputs[d]) {
+        descInputs[d].classList.remove('is-invalid');
+        if (!val) {
+          descInputs[d].classList.add('is-invalid');
+          if (firstMissing === -1) firstMissing = d;
+        }
+      }
+    }
+    if (firstMissing !== -1) {
+      alert(T[LANG].uploadDescRequired || 'Please add a description for each file before uploading.');
+      if (descInputs[firstMissing]) descInputs[firstMissing].focus();
+      return;
+    }
+
     btn.disabled = true;
     var successCount = 0, errorCount = 0;
 
@@ -925,7 +959,7 @@
       statusCells[i].textContent = T[LANG].uploadStatusUploading;
       try {
         var b64  = await fileToBase64(files[i]);
-        var desc = descInputs[i] ? descInputs[i].value.trim() : '';
+        var desc = descInputs[i].value.trim();
         var resp = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({

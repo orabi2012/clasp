@@ -645,9 +645,11 @@ function handleClientFileUpload_(body, caller) {
   var fileName = (body.fileName || '').trim();
   var mimeType = (body.mimeType || 'application/octet-stream').trim();
   var b64      = (body.base64  || '').trim();
-  var desc     = (body.description || '').substring(0, 500); // cap at 500 chars
+  var desc     = (body.description || '').trim();
+  if (desc.length > 500) desc = desc.substring(0, 500); // cap at 500 chars
   if (!fileName) return err_('fileName required');
   if (!b64)      return err_('base64 required');
+  if (!desc)     return err_('description required');
 
   // Locate the uploads/ subfolder
   var rootFolder;
@@ -661,7 +663,7 @@ function handleClientFileUpload_(body, caller) {
   // Decode and create the file
   var blob = Utilities.newBlob(Utilities.base64Decode(b64), mimeType, fileName);
   var file = uploadsFolder.createFile(blob);
-  if (desc) file.setDescription(desc);
+  file.setDescription(desc);
 
   // Mark as portal-uploaded so checkUploadsForNewFiles can process it
   // (files created by the script owner are normally skipped)
